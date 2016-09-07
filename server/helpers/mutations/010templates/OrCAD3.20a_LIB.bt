@@ -1,0 +1,289 @@
+//-----------------------------------
+//--- 010 Editor v6.0 Binary Template
+//
+// File:     OrCAD3.20a_LIB.bt
+// Author:   L. Potjewijd
+// Revision: 1.21
+// Date:     20150530
+// Purpose:  Parsing OrCad 3.20a library files
+//-----------------------------------
+
+enum <byte> YesNo  {No,Yes};
+enum <byte> Vtype  {END,LINE,CIRCLE,TEXT,ARC,FILL};
+enum <byte> ptype  {IN,I_O,OUT,OC,PAS,hiZ,OE,PWR};
+enum <byte> pquad  {II,IV};
+enum <byte> pside  {Left,Right,Top,Bottom};
+
+typedef byte bit;          // just for readability
+
+typedef struct sText
+{   byte    Length <hidden=true>;
+    if (Length > 0) char String[Length];
+};
+
+typedef struct fTxt (byte fixLen)
+{   byte Length <hidden=true>;
+    if (Length > 0) char String[Length];
+    if ((fixLen > 0) && (fixLen > Length)) char filler[fixLen-Length];
+};
+
+typedef struct Coord
+{   short   X;
+    short   Y;
+};
+
+typedef struct  idxP
+{   ushort  NameOffset <format=hex>;
+    ushort  DefOffset <format=hex>;
+    BigEndian();
+    WORD    PrefixBitmap <format=binary>;
+    LittleEndian();
+    WORD    unknown <format=hex>;
+};
+
+typedef struct Offsets
+{   ushort  offsetLarge;
+    ushort  offsetMedium;
+    ushort  offsetSmall;
+};
+
+typedef struct PartDet
+{   BigEndian();                    /*************************/
+    WORD    raw <format=binary>;    /*  this is to display   */
+    LittleEndian();                 /*  the 'raw' bits, too  */
+    FSkip (-2);                     /*************************/
+    BitfieldLeftToRight();
+    YesNo   hasConvDef  : 1;        // exact meaning is uncertain
+    bit     bitE        : 1 <hidden=true>;
+    bit     bitD        : 1 <hidden=true>;
+    ubyte   subparts    : 5;        // maximum = 16
+    YesNo   isGridArray : 1;
+    bit     bit6        : 1 <hidden=true>;
+    bit     bit5        : 1 <hidden=true>;
+    bit     bit4        : 1 <hidden=true>;
+    bit     bit3        : 1 <hidden=true>;
+    YesNo   NormBitmap  : 1;
+    YesNo   ConvBitmap  : 1;
+    bit     bit0        : 1 <hidden=true>;
+};
+
+typedef struct  PinDet
+{   BigEndian();                    /*************************/
+    WORD    raw <format=binary>;    /*  this is to display   */
+    LittleEndian();                 /*  the 'raw' bits, too  */
+    FSkip (-2);                     /*************************/
+    BitfieldLeftToRight();
+    YesNo   vertical    : 1 <hidden=true>;;
+    byte    location    : 7;
+    ptype   type        : 3;
+    YesNo   isShort     : 1;
+    YesNo   hasDOT      : 1;
+    YesNo   hasCLK      : 1;
+    bit     bit1        : 1 <hidden=true>;
+    pquad   quadrant    : 1 <hidden=true>;
+    local   pside side  = quadrant + (2 * vertical);
+};
+
+typedef struct DefPart
+{   ushort  Length <format=hex>;
+    local   ushort  PartStart <format=hex, hidden=true>;
+    local   ushort  PartEnd <format=hex, hidden=true>;
+    local   ushort  NextPart <format=hex, hidden=true>;
+    PartStart = FTell();
+    PartEnd = PartStart + Length - 1;
+    NextPart = PartEnd + 1;
+    short   sizeX <format=decimal>;
+    short   sizeY <format=decimal>;
+    PartDet PartDetails;
+    short   PinsPerPart;
+    WORD    unknown1 <format=hex>;
+    if (PartDetails.NormBitmap == Yes) 
+        Offsets NormalBitmap;
+    if (PartDetails.ConvBitmap == Yes)
+    {   WORD    unknown2 <format=hex>;
+        Offsets ConvertBitmap;
+    };
+    sText   RefDesPrefix;
+    typedef struct  DefPin
+    {   PinDet  PinDetails;
+        sText   Name;
+        if (PartDetails.subparts > 0) 
+        {   if (PartDetails.isGridArray == No)
+                 byte  PinNumber[PartDetails.subparts] <optimize=false>;
+            else sText PinNumber[PartDetails.subparts] <optimize=false>;
+        };
+    };
+    if (PinsPerPart > 0)
+    {   DefPin  NormalPin[PinsPerPart] <optimize=false>;
+        if (PartDetails.ConvBitmap == Yes)
+        {   j=0;
+            while ((FTell() < NextPart) && (j < PinsPerPart))
+            {   DefPin ConvertPin;
+                j++;
+            }
+        }
+        else j=PinsPerPart;
+    };
+    if (FTell() < NextPart)
+    {   Printf("  Part %i has orphaned pin definition(s).\n",i);
+        while (FTell() < NextPart) DefPin orphanPin;
+    };
+    if (j < PinsPerPart)
+    {   Printf("  Part %i has %i missing pin definition(s).\n",i,PinsPerPart-j);
+        FSkip (NextPart-FTell());
+    };
+    i++;
+};
+
+typedef struct BM
+{   ushort  Length;
+    ushort  offsetVectormap;
+    byte    graphic[Length-2] <format=binary>;
+};
+
+typedef struct VM
+{   ushort  Length;
+    typedef struct  VecDef
+    {   Vtype   Type;
+        switch (Type)
+        {   case END    :   break;
+            case LINE   :  {Coord   start;
+                            Coord   finish; break;}
+            case CIRCLE :  {Coord   center;
+                            short   radius; break;}
+            case TEXT   :  {Coord   origin;
+                            ubyte   size;
+                            sText   text; break;}
+            case ARC    :  {Coord   center;
+                            Coord   start;
+                            Coord   finish;
+                            short   radius; break;}
+            case FILL   :  {Coord   location; break;}
+            default     :  {Printf ("  Unknown vector type %i at 0x%X\n",Type,FTell());
+                            return  -1;}
+        };
+    };
+    do  VecDef Vector;
+    while (Vector.Type != END);
+};
+
+void SORTlist (int start, int finish)  // Qsort routine
+{   local   int     left  = start; 
+    local   int     right = finish; 
+    local   ushort  pivot = list[((start+finish)/2)];
+    local   ushort  temp;
+    do
+    {   while (left <= right)
+        {   while (list[left] < pivot) left++;
+            while (list[right] > pivot) right--;
+            if (left <= right) 
+            {   temp=list[left]; list[left]=list[right]; list[right]=temp;
+                left++; 
+                right--;
+            }; //if
+        }; //while
+        if (start < right) SORTlist(start,right);
+        if (left < finish) SORTlist(left,finish);
+    } while (left <= right);
+}; 
+
+// ***************************************************************************
+LittleEndian();
+// header section
+struct HeaderDef
+{   struct IDstring
+    {   char    text[14];  // "LIBRARY OBJECT"
+        char    term[3];   // #13, #10, #26
+    } head;
+    if (head.text != "LIBRARY OBJECT")
+    {   Warning("\nFile is not an OrCAD library file.\n");
+        Exit (-1);
+    };
+    byte    filler[8];
+    ushort  IndexOffset;                // may be something else
+    int     idxLength <format=hex>;
+} HEADER;
+local   int     entries <hidden=true>;
+entries = HEADER.idxLength / 8;
+local   int     parts <hidden=true>;
+parts = entries-1;
+local   ushort  list[entries] <hidden=true>;
+local   int     i <hidden=true>;
+local   int     j <hidden=true>;
+local   int     k <hidden=true>;
+
+//index section
+struct  IndexDef
+{   idxP    Pointer[entries] <format=hex>;
+    sText   Name[entries] <format=hex, optimize=false>;
+} INDEX;
+for ( k=0; k < entries; k++ ) 
+    list[k]=INDEX.Pointer[k].DefOffset; // copy definition offsets
+SORTlist (0,parts);
+list[parts]=0;                          // mark end of list
+for ( i=0; i < entries-1; i++ )         // hunt for doubles
+{   j=i+1;
+    while ((list[i]==list[j]) && (j <= parts))
+        j++;                            // count doubles to move
+    if ((j <= parts) && (j > i+1))
+        while (j > i+1)                 // found doubles to shift
+        {   for ( k=i+1; k < parts; k++ )
+                list[k]=list[k+1];      // shift values 
+            list[k]=0;                  // mark new end
+            j--;
+            parts--;                    // reduce search length
+        };
+};
+Printf("\nIndex has %i entries, %i distinct parts.\n",entries,parts);
+
+//  prefix section
+struct  PrefixDef
+{   DWORD   unknown[16] <format=hex>;
+    fTxt    LEFT(7)[16];
+    fTxt    RIGHT(7)[16];
+} PREFIX;
+
+// part definitions
+local   uint    PartSecStart <format=hex, hidden=true>;
+PartSecStart = FTell();
+ushort          PartSectionLength <format=hex>;
+local   uint    PartSecEnd <format=hex, hidden=true>;
+PartSecEnd = FTell() + PartSectionLength -1;
+Printf ("Part section has %i bytes (0x%X-0x%X)\n",PartSectionLength,PartSecStart,PartSecEnd);
+i=0;
+while (FTell() < PartSecEnd) DefPart Part;
+
+// bitmap section
+local   uint    BitmapSecStart <format=hex, hidden=true>;
+BitmapSecStart = FTell();
+ushort          BitmapSectionLength <format=hex>;
+local   uint    BitmapSecEnd <hidden=true>;
+BitmapSecEnd = FTell() + BitmapSectionLength -1;
+Printf ("Bitmap section has %i bytes (0x%X-0x%X)\n",BitmapSectionLength,BitmapSecStart,BitmapSecEnd);
+while (FTell() < BitmapSecEnd) BM Bitmap;
+
+// vector section
+local   uint    VecSecStart <format=hex, hidden=true>;
+VecSecStart = FTell();
+ushort          VectorSectionLength <format=hex>;
+local   uint    VecSecEnd <hidden=true>;
+VecSecEnd = FTell() + VectorSectionLength -1;
+Printf ("Vector section has %i bytes (0x%X-0x%X)\n",VectorSectionLength,VecSecStart,VecSecEnd);
+while (FTell() < VecSecEnd) VM VectorSet;
+
+// sheetpath index
+local   uint    SheetIndexStart <format=hex, hidden=true>;
+SheetIndexStart = FTell();
+Printf ("Sheetpath index starts at 0x%X\n",SheetIndexStart);
+ushort   SheetpathIndex[entries];
+
+// sheetpath section
+ushort          SheetSectionLength;
+local   uint    SheetSectionStart <format=hex, hidden=true>;
+SheetSectionStart = FTell();
+local   uint    SheetSecEnd <hidden=true>;
+SheetSecEnd = FTell() + SheetSectionLength -1;
+Printf ("Sheetpath section starts at 0x%X\n",SheetSectionStart);
+while (FTell() < SheetSecEnd) sText Sheetpath;
+
+if (!FEof()) Printf("Found extra bytes at end of file.");

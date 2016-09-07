@@ -1,0 +1,48 @@
+//--------------------------------------
+//--- 010 Editor v2.1.3 Binary Template
+//
+// File: Netflow Version 5
+//
+// Author: Andrew Faust
+// Revision:
+// Purpose: Parses a Netflow Version 5 record
+//--------------------------------------
+
+BigEndian();
+
+struct FLOW {
+	struct HEADER {
+		ushort Version;
+		ushort Count;
+		uint SysUptime;
+		uint EopochSeconds;
+		uint NanoSeconds;
+		uint FlowsSeen;
+		byte EngineType;
+		byte EngineID;		
+		char filler[2];
+	} header;
+
+	struct DATA {
+		char SourceIP[4];
+		char DestIP[4];
+		char NextHopIP[4];
+		ushort InSNMP;
+		ushort OutSNMP;
+		uint  PacketCount;
+		uint  ByteCount;
+		uint  StartFlowTime;
+		uint  EndFlowTime;
+		ushort SourcePort;
+		ushort DestPort;
+		char filler[1];
+		byte TCPFlags;
+		byte Protocol;
+		byte TypeOfService;
+		ushort SourceSysID;
+		ushort DestSysID;
+		byte SourceMaskBitsCount;
+		byte DestMaskBitsCount;
+		char filler2[2];
+	} data [ flow.header.Count ];
+} flow;

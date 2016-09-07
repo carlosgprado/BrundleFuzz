@@ -1,0 +1,655 @@
+/* *************************************************************************
+ *
+ * Microsoft exFAT file system Parser Template
+ *
+ *
+ * File Name       : exfat_spec.bt
+ * Author          : Lu wen jiang
+ * Created On      : Mon Aug 24 13:43:40 2009
+ * Last Modified By: Lu wen jiang
+ * Last Modified On: Fri Aug 28 17:59:23 2009
+ * Update Count    : 884
+ *
+ * HISTORY
+ *
+ * **************************************************************************/
+
+/****************************************************************************
+                  EXFAT FILE SYSTEM VOLUME STRUCTURE LAYOUT
+|------------------------+----------------------+---------------------------|
+| Sub-region Name        |       Offset(sector) |             Size(Sectors) |
+|------------------------+----------------------+---------------------------|
+|                        |  [MAIN BOOT REGION]  |                           |
+|------------------------+----------------------+---------------------------|
+| Main Boot Sector       |                    0 |                         1 |
+|------------------------+----------------------+---------------------------|
+| Main Extended Boot     |                    1 |                         8 |
+| Sectors                |                      |                           |
+|------------------------+----------------------+---------------------------|
+| Main OEM Parameters    |                    9 |                         1 |
+|------------------------+----------------------+---------------------------|
+| Main Reserved          |                   10 |                         1 |
+|------------------------+----------------------+---------------------------|
+| Main Boot CheckSum     |                   11 |                         1 |
+|------------------------+----------------------+---------------------------|
+|                        | [BACKUP BOOT REGION] |                           |
+|------------------------+----------------------+---------------------------|
+| Backup Boot Sector     |                   12 |                         1 |
+|------------------------+----------------------+---------------------------|
+| Backup Extended Boot   |                   13 |                         8 |
+| Sectors                |                      |                           |
+|------------------------+----------------------+---------------------------|
+| Backup OEM Parameters  |                   21 |                         1 |
+|------------------------+----------------------+---------------------------|
+| Backup Reserved        |                   22 |                         1 |
+|------------------------+----------------------+---------------------------|
+| Backup Boot CheckSum   |                   23 |                         1 |
+|------------------------+----------------------+---------------------------|
+|                        |  [FAT REGION]        |                           |
+|------------------------+----------------------+---------------------------|
+| FAT Alignment          |                   24 |                         x |
+|------------------------+----------------------+---------------------------|
+| First FAT              |            FatOffset |                 FatLength |
+|------------------------+----------------------+---------------------------|
+| Second FAT             |  FATOffset+FATLength |                Fatlength* |
+|                        |                      |          (NumberOfFats-1) |
+|------------------------+----------------------+---------------------------|
+|                        |  [DATA REGION]       |                           |
+|------------------------+----------------------+---------------------------|
+| Cluster Heap Alignment |     (FAT End Sector) |                         x |
+|------------------------+----------------------+---------------------------|
+| Cluster Heap           |    ClusterHeapOffset |             ClusterCount* |
+|                        |                      |  2^SectorsPerClusterShift |
+|------------------------+----------------------+---------------------------|
+| Excess Space           | (Cluster End Sector) |              VolumLength- |
+|                        |                      | (Cluster Heap End Sector) |
+|------------------------+----------------------+---------------------------|
+*****************************************************************************/
+LittleEndian();
+FSeek(0);
+
+typedef char                 S08;
+typedef unsigned char        U08;
+typedef unsigned short       U16;
+typedef unsigned int         U32;
+typedef uint64   U64;
+
+struct tagTempVariable
+{
+local U08 flags[2];
+local U32 cluster_max = 512;
+local U32 cluster_array[cluster_max];
+local U32 cluster_count = 0;
+local U32 cluster_iter = 0;
+local U32 bitmap_cluster = 2;
+}exfat_temp_variable <read=TotalSizeRead>;
+
+local U64 ______EXFAT_BOOT_SECTOR_REGION;
+string TotalSizeRead(struct tagTempVariable& v)
+{
+    string s; 
+    SPrintf(s, "Disk   Bytes: %Lu(%Lxh)", FileSize(), FileSize());
+    return s;
+}
+
+typedef U08 exFatVersion[2] <read=VersionRead>;
+string VersionRead(exFatVersion v )
+{
+    string s;   
+    SPrintf(s, "exFAT Revision: %01d.%02d", v[1], v[0]);
+    return s;
+}
+string ShiftRead(U08 v)
+{
+    string s;   
+    SPrintf(s, "%d(%d)", v, (1<<v));
+    return s;
+}
+U08 IsValidBootSector(U08 aucJumpBoot[3],
+                      S08 aucFileSystemName[8])
+{
+    if (aucJumpBoot[0]==0xEB
+        && aucJumpBoot[1]==0x76
+        && aucJumpBoot[2]==0x90
+        && aucFileSystemName[0]=='E'
+        && aucFileSystemName[1]=='X'
+        && aucFileSystemName[2]=='F'
+        && aucFileSystemName[3]=='A'
+        && aucFileSystemName[4]=='T')
+    {
+        return 1;
+    }
+    return 0;
+}
+
+typedef struct
+{
+    U08 aucJumpBoot[3] <format=hex>; 
+    S08 aucFileSystemName[8];   
+    U08 aucMustBeZero[53];      
+    U64 ulPartitionOffset;     
+    U64 ulVolumeLength;  
+    U32 uiFatOffset;
+    U32 uiFatLength; 
+    U32 uiClusterHeapOffset;
+    U32 uiClusterCount;     
+    U32 uiFirstClusterOfRootDirectory;
+    U32 uiVolumeSerialNumber <format=hex>;  
+    exFatVersion usFileSystemRevision;
+    U16 usVolumeFlags_ActiveFat:1; 
+    U16 usVolumeFlags_VolumeDirty:1;
+    U16 usVolumeFlags_MediaFailure:1;
+    U16 usVolumeFlags_ClearToZero:1;
+    U16 usVolumeFlags_Reserved:12;
+    U08 ucBytesPerSectorShift <read=ShiftRead>;
+    U08 ucSectorsPerClusterShift <read=ShiftRead>; 
+    U08 ucNumberOfFats; 
+    U08 ucDriveSelect <format=hex>;
+    U08 ucPercentInUse;
+    U08 aucReserved[7]; 
+    U08 aucBootCode[390]; 
+    U16 usBootSignature <format=hex>;
+    if (IsValidBootSector(aucJumpBoot,aucFileSystemName)==1
+        && (1<<ucBytesPerSectorShift)-512)
+    {
+        U08 aucExcessSpace[(1<<ucBytesPerSectorShift)-512];
+    }
+} BootSector_S <read=BootSectorRead>;
+BootSector_S BootSector ;
+string BootSectorRead(BootSector_S& v)
+{
+    string s;
+    if (IsValidBootSector(v.aucJumpBoot,v.aucFileSystemName)==1)
+    {
+        SPrintf(s, "Valid exFAT Volume");
+    }
+    else
+    {
+        SPrintf(s, "Invalid exFAT Volume, %s?", v.aucFileSystemName);
+    }
+    return s;
+}
+
+if (IsValidBootSector(BootSector.aucJumpBoot,BootSector.aucFileSystemName)==0)
+{
+    return 0;
+}
+
+local U64 ______EXFAT_VOLUME_LAYOUT_REGION;
+FSeek(0);
+typedef struct
+{
+BootSector_S BootSector;
+struct
+{
+    U08 aucExendedBootCode[(1<<BootSector.ucBytesPerSectorShift)-4];
+    U32 uiExtendedBootSignature <format=hex>;
+}ExtendedBootSector[8];
+
+struct 
+{
+    struct
+    {
+        U08 aucParametersGuid[16];
+        U08 aucCustomDefined[32];
+    }stParameters[10];
+    U08 aucReserved[(1<<BootSector.ucBytesPerSectorShift)-480];
+}OEMParametersSector;
+
+struct
+{
+    U08 aucReserved[(1<<BootSector.ucBytesPerSectorShift)];
+}ReservedSector;
+
+struct
+{
+    U32 aucReserved[(1<<BootSector.ucBytesPerSectorShift)/4] <format=hex>;
+}BootChecksumSector;
+
+}Boot_Region_S <read=BootRegionRead>;
+string BootRegionRead(Boot_Region_S& boot)
+{
+    string s;
+    SPrintf(s, "Volume Bytes: %Lu(%Lxh)",
+            boot.BootSector.ulVolumeLength<<boot.BootSector.ucBytesPerSectorShift,
+            boot.BootSector.ulVolumeLength<<boot.BootSector.ucBytesPerSectorShift);
+    return s;
+}
+
+
+Boot_Region_S Main_Boot_Region;
+Boot_Region_S Backup_Boot_Region;
+
+typedef struct
+{
+    if (Main_Boot_Region.BootSector.uiFatOffset-24)
+    {
+        struct
+        {
+            U08 aucReserved[(1<<Main_Boot_Region.BootSector.ucBytesPerSectorShift)];
+        }FatAlignmentSector[Main_Boot_Region.BootSector.uiFatOffset-24];
+    }
+    struct
+    {
+        U32 uiFatEntry[Main_Boot_Region.BootSector.uiClusterCount+2] <format=hex>;
+        U32 uiExcessEntry[Main_Boot_Region.BootSector.uiFatLength*
+                        (1<<Main_Boot_Region.BootSector.ucBytesPerSectorShift)/4
+                        -(Main_Boot_Region.BootSector.uiClusterCount+2)] <format=hex>;
+    }FirstFAT;
+    if (Main_Boot_Region.BootSector.ucNumberOfFats > 1)
+    {
+        struct
+        {
+            U32 uiFatEntry[Main_Boot_Region.BootSector.uiClusterCount+2] <format=hex>;
+            U32 uiExcessEntry[Main_Boot_Region.BootSector.uiFatLength*
+                               (1<<Main_Boot_Region.BootSector.ucBytesPerSectorShift)/4
+                               -(Main_Boot_Region.BootSector.uiClusterCount+2)] <format=hex>;
+        }SecondFAT;
+    }
+}Fat_Region_S <read=FatRegionRead>;
+string FatRegionRead(Fat_Region_S& v)
+{
+    string s;
+    SPrintf(s, "FATs: %d, EntryTotalPerFAT: %d", Main_Boot_Region.BootSector.ucNumberOfFats,
+            Main_Boot_Region.BootSector.uiClusterCount+2);
+    return s;
+}
+Fat_Region_S Fat_Region;
+typedef struct
+{
+    local U32 uiClusterNo = 2;
+    struct
+    {
+        U08 aucData[1<<Main_Boot_Region.BootSector.ucBytesPerSectorShift];
+    }DataSector[1<<Main_Boot_Region.BootSector.ucSectorsPerClusterShift];
+}Cluster_S <read=ClusterRead>;
+string ClusterRead(Cluster_S& v)
+{
+    string s;
+    SPrintf(s, "ClusterNo: %d", v.uiClusterNo);
+    return s;
+}
+struct tagDataRegion
+{
+    if (Main_Boot_Region.BootSector.uiClusterHeapOffset -
+        (Main_Boot_Region.BootSector.uiFatOffset +
+         Main_Boot_Region.BootSector.ucNumberOfFats *
+         Main_Boot_Region.BootSector.uiFatLength))
+    {
+        struct
+        {
+            U08 aucReserved[(1<<Main_Boot_Region.BootSector.ucBytesPerSectorShift)];
+        }ClusterHeapAlignmentSector[Main_Boot_Region.BootSector.uiClusterHeapOffset -
+                                    (Main_Boot_Region.BootSector.uiFatOffset +
+                                     Main_Boot_Region.BootSector.ucNumberOfFats *
+                                     Main_Boot_Region.BootSector.uiFatLength)];
+    }
+    local U64 data_cluster_total = (FileSize()-FTell())>>
+        Main_Boot_Region.BootSector.ucBytesPerSectorShift>>
+        Main_Boot_Region.BootSector.ucSectorsPerClusterShift;
+    if (data_cluster_total > Main_Boot_Region.BootSector.uiClusterCount)
+    {
+        data_cluster_total = Main_Boot_Region.BootSector.uiClusterCount;
+    }
+    local U32 curr_cluster_no = 0;
+    for (exfat_temp_variable.cluster_iter = 0;
+         exfat_temp_variable.cluster_iter < data_cluster_total;
+         exfat_temp_variable.cluster_iter++)
+    {
+        Cluster_S ClusterHeap;
+        ClusterHeap.uiClusterNo += curr_cluster_no;
+        curr_cluster_no++;
+    }
+}Data_Region <read=DataRegionRead>;
+string DataRegionRead(struct tagDataRegion& v)
+{
+    string s;
+    SPrintf(s, "Cluster Total(%s): %d(%d)",
+            (v.data_cluster_total==Main_Boot_Region.BootSector.uiClusterCount)?"FINE":"FAIL",
+            Main_Boot_Region.BootSector.uiClusterCount,v.data_cluster_total);
+    return s;
+}
+
+if (Main_Boot_Region.BootSector.ulVolumeLength -
+    Main_Boot_Region.BootSector.uiClusterHeapOffset -
+    (Main_Boot_Region.BootSector.uiClusterCount<<
+     Main_Boot_Region.BootSector.ucSectorsPerClusterShift))
+{
+    struct
+    {
+        struct
+        {
+            U08 aucReserved[(1<<Main_Boot_Region.BootSector.ucBytesPerSectorShift)];
+        }ReservedSector;
+    }ExcessSpace[Main_Boot_Region.BootSector.ulVolumeLength -
+                 Main_Boot_Region.BootSector.uiClusterHeapOffset -
+                 (Main_Boot_Region.BootSector.uiClusterCount<<
+                  Main_Boot_Region.BootSector.ucSectorsPerClusterShift)];
+}
+
+
+///////////////////////////////////////////////////////////////////////
+local int ______EXFAT_ALLOCATION_BITMAP_REGION;
+FSeek((((exfat_temp_variable.bitmap_cluster-2)<<
+        Main_Boot_Region.BootSector.ucSectorsPerClusterShift) +
+        Main_Boot_Region.BootSector.uiClusterHeapOffset)<<
+        Main_Boot_Region.BootSector.ucBytesPerSectorShift);
+typedef struct
+{
+    local U32 byte_count;
+    U08 bitmap;
+}Bitmap_S <read=BitmapRead>;
+string BitmapRead(Bitmap_S& stBitmapByte)
+{
+    string s;
+    SPrintf(s, "%08d: %d%d%d%d%d%d%d%d", stBitmapByte.byte_count+2,
+            (stBitmapByte.bitmap>>0)&0x1,
+            (stBitmapByte.bitmap>>1)&0x1,
+            (stBitmapByte.bitmap>>2)&0x1,
+            (stBitmapByte.bitmap>>3)&0x1,
+            (stBitmapByte.bitmap>>4)&0x1,
+            (stBitmapByte.bitmap>>5)&0x1,
+            (stBitmapByte.bitmap>>6)&0x1,
+            (stBitmapByte.bitmap>>7)&0x1);
+    return s;
+}
+
+struct tagBitmapRegion
+{
+    local U32 bitmap_length = Main_Boot_Region.BootSector.uiClusterCount;
+    for (exfat_temp_variable.cluster_iter = 0;
+         exfat_temp_variable.cluster_iter < (bitmap_length+7)/8;
+         exfat_temp_variable.cluster_iter++)
+    {
+        Bitmap_S Bitmap;
+        Bitmap.byte_count = exfat_temp_variable.cluster_iter<<3;
+    }
+}BITMAP_REGION <read=AllocationBitmapRegionRead>;
+string AllocationBitmapRegionRead(struct tagBitmapRegion& stBitmapRegion)
+{
+    string s;
+    SPrintf(s, "Bits: %d(Bytes: %d)", stBitmapRegion.bitmap_length,
+            (stBitmapRegion.bitmap_length+7)/8);
+    return s;
+}
+
+///////////////////////////////////////////////////////////////////////
+local int ______EXFAT_DIRECTORY_REGION;
+
+typedef struct
+{
+    local U08 uc10msIncrement = 0;
+    U16 bDoubleSeconds:5;
+    U16 bMinute:6;
+    U16 bHour:5;
+    U16 bDay:5;
+    U16 bMonth:4;
+    U16 bYear:7;
+}FileTime_S <read=FileTimeRead>;
+string FileTimeRead(FileTime_S& v)
+{
+    string s;
+    SPrintf(s, "%04d/%02d/%02d %02d:%02d:%02d.%02d", v.bYear+1980,
+            v.bMonth,v.bDay,v.bHour,v.bMinute,
+            v.bDoubleSeconds*2 + v.uc10msIncrement/100,
+            (v.uc10msIncrement%100));
+    return s;
+}
+
+typedef U08 FileName_S[30] <read=FileNameRead>;
+typedef U08 VolumeLabel_S[22] <read=VolumeLabelRead>;
+typedef struct
+{
+    struct
+    {
+        U08 bTypeCode:5;  
+        U08 bTypeImportance:1; 
+        U08 bTypeCategory:1;
+        U08 bInUse:1;
+    }stEntryType;
+    
+    if (stEntryType.bTypeCategory==0 && stEntryType.bTypeImportance==0)
+    {
+        switch (stEntryType.bTypeCode)
+        {
+            case 1: // Allocation Bitmap
+                U08 bBitmapIdentifier:1; 
+                U08 bReserved:7;
+                U08 aucCustomDefined[18];
+                U32 uiFirstCluster; 
+                U64 ulDataLength;
+                break;
+            case 2: // Up-case Table
+                U08 aucReserved1[3]; 
+                U32 uiTableChecksum <format=hex>; 
+                U08 aucReserved2[12];
+                U32 uiFirstCluster; 
+                U64 ulDataLength;
+                break;
+            case 3: // Volume Label
+                U08 ucCharacterCount; 
+                VolumeLabel_S stVolumeLabel;
+                U08 aucReserved[8];
+                break;
+            case 5: // File or Directory
+                U08 ucSecondaryCount;
+                U16 usSetCheckSum <format=hex>;
+                U16 bAttrReadOnly:1;
+                U16 bAttrHidden:1;
+                U16 bAttrSystem:1;
+                U16 bAttrReserved1:1;
+                U16 bAttrDirectory:1;
+                U16 bAttrArchive:1;
+                U16 bAttrReserved2:10;
+                U08 ausReserved1[2];
+                FileTime_S stCreat;
+                FileTime_S stLastModified;
+                FileTime_S stLastAccessed;
+                U08 ucCreate10msIncrement; /* per 10ms */
+                U08 ucModified10msIncrement; /* per 10ms */
+                U08 ucLastAcc10msdIncrement; /* per 10ms */
+                U08 ausReserved2[9];
+                stCreat.uc10msIncrement = ucCreate10msIncrement;
+                stLastModified.uc10msIncrement = ucModified10msIncrement;
+                stLastAccessed.uc10msIncrement = ucLastAcc10msdIncrement;
+                if (bAttrDirectory == 1
+                    && stEntryType.bInUse == 1
+                    && exfat_temp_variable.cluster_count < exfat_temp_variable.cluster_max)
+                {
+                    exfat_temp_variable.cluster_array[exfat_temp_variable.cluster_count]=1;
+                }
+                break;
+            default:
+                U08 ucSecondaryCount;
+                U16 usSetCheckSum <format=hex>;
+                U16 bAllocationPossible:1;
+                U16 bNoFatChain:1;
+                U16 bCustomDefined:14;
+                U08 aucCustomDefined[14];
+                U32 uiFirstCluster; 
+                U64 ulDataLength;
+                break;
+        }
+    }
+    else if (stEntryType.bTypeCategory==0 && stEntryType.bTypeImportance==1)
+    {
+        switch (stEntryType.bTypeCode)
+        {
+            case 0:  //Volume GUID
+                U08 ucSecondaryCount;
+                U16 usSetCheckSum;
+                U16 bAllocationPossible:1;
+                U16 bNoFatChain:1;
+                U16 bCustomDefined:14;
+                U08 aucVolumeGuid[16];
+                U08 aucReserved[10];
+                break;
+            case 1: // TexFAT Padding
+                U08 aucCustomDefined[31];break;    
+            case 2: // WinCE ACL Table
+                U08 aucCustomDefined[31];break;
+            default: // Unknow
+                U08 aucCustomDefined[31];break;
+        }
+    }
+    else if (stEntryType.bTypeCategory==1 && stEntryType.bTypeImportance==0)
+    {
+        switch (stEntryType.bTypeCode)
+        {
+            case 0: // Stream Extension
+                U08 bAllocationPossible:1;
+                U08 bNoFatChain:1;
+                U08 bCustomDefined:6;
+                U08 ucReserved1;
+                U08 ucNameLength;
+                U16 usNameHash <format=hex>;
+                U08 aucReserved2[2];
+                U64 ulValidDataLength;
+                U08 aucReserved3[4];
+                U32 uiFirstCluster; 
+                U64 ulDataLength;
+                if (stEntryType.bInUse == 1
+                    && exfat_temp_variable.cluster_count < exfat_temp_variable.cluster_max
+                    && exfat_temp_variable.cluster_array[exfat_temp_variable.cluster_count]==1)
+                {
+                    exfat_temp_variable.cluster_array[exfat_temp_variable.cluster_count] = uiFirstCluster;
+                    exfat_temp_variable.cluster_count++;
+                }
+                break;
+            case 1: // File Name
+                U08 bAllocationPossible:1;
+                U08 bNoFatChain:1;
+                U08 bCustomDefined:6;
+                FileName_S stFileNmae;
+                break;
+            default:
+                U08 bAllocationPossible:1;
+                U08 bNoFatChain:1;
+                U08 bCustomDefined:6;
+                U08 aucCustomDefined[18];
+                U32 uiFirstCluster; 
+                U64 ulDataLength;
+                break;
+        }
+    }
+    else
+    {
+        U08 aucCustomDefined[31];
+    }
+}DirectoryEntry_S <read=DirectoryRead>;
+
+string FileNameRead(FileName_S astFileName)
+{
+    char s[16];
+    U08 i;
+    for (i = 0; i < 15; i++)
+    {
+        s[i] = astFileName[i*2];
+    }
+    return s;
+}
+string VolumeLabelRead(VolumeLabel_S astFileName)
+{
+    char s[12];
+    U08 i;
+    for (i = 0; i < 11; i++)
+    {
+        s[i] = astFileName[i*2];
+    }
+    return s;
+}
+
+string DirectoryRead(DirectoryEntry_S& stDirEntry)
+{
+    string s = "Unknow Type";
+    if (stDirEntry.stEntryType.bTypeCategory==0 && stDirEntry.stEntryType.bTypeImportance==0)
+    {
+        switch (stDirEntry.stEntryType.bTypeCode)
+        {
+            case 1:SPrintf(s, "[C/P/%s]: Allocation Bitmap",
+                           stDirEntry.stEntryType.bInUse==0?"F":"U");break;
+            case 2:SPrintf(s, "[C/P/%s]: Up-case Table",
+                           stDirEntry.stEntryType.bInUse==0?"F":"U");break;    
+            case 3:SPrintf(s, "[C/P/%s]: Valume Label(%s)",
+                           stDirEntry.stEntryType.bInUse==0?"F":"U",
+                           VolumeLabelRead(stDirEntry.stVolumeLabel));break;
+            case 5:SPrintf(s, "[C/P/%s]: Regular File(%s)",
+                           stDirEntry.stEntryType.bInUse==0?"F":"U",
+                           stDirEntry.bAttrDirectory==0?"File":"Directroy");break;
+            default:SPrintf(s, "[C/P/%s]: Unknow",
+                            stDirEntry.stEntryType.bInUse==0?"F":"U");break;
+        }
+    }
+    if (stDirEntry.stEntryType.bTypeCategory==0 && stDirEntry.stEntryType.bTypeImportance==1)
+    {
+        switch (stDirEntry.stEntryType.bTypeCode)
+        {
+            case 0:SPrintf(s, "[B/P/%s]: Volume GUID",
+                           stDirEntry.stEntryType.bInUse==0?"F":"U");break;
+            case 1:SPrintf(s, "[B/P/%s]: TexFAT Padding",
+                           stDirEntry.stEntryType.bInUse==0?"F":"U");break;    
+            case 2:SPrintf(s, "[B/P/%s]: WinCE ACL Table",
+                           stDirEntry.stEntryType.bInUse==0?"F":"U");break;
+            default:SPrintf(s, "[B/P/%s]: Unknow",
+                            stDirEntry.stEntryType.bInUse==0?"F":"U");break;
+        }
+    }
+    if (stDirEntry.stEntryType.bTypeCategory==1 && stDirEntry.stEntryType.bTypeImportance==0)
+    {
+        switch (stDirEntry.stEntryType.bTypeCode)
+        {
+            case 0:SPrintf(s, "[C/S/%s]: Stream Extension",
+                           stDirEntry.stEntryType.bInUse==0?"F":"U");break;
+            case 1:SPrintf(s, "[C/S/%s]: File Name(%s)",
+                           stDirEntry.stEntryType.bInUse==0?"F":"U",
+                           FileNameRead(stDirEntry.stFileNmae));break;    
+            default:SPrintf(s, "[C/S/%s]: Unknow",
+                            stDirEntry.stEntryType.bInUse==0?"F":"U");break;
+        }
+    }
+    if (stDirEntry.stEntryType.bTypeCategory==1 && stDirEntry.stEntryType.bTypeImportance==1)
+    {
+        switch (stDirEntry.stEntryType.bTypeCode)
+        {
+            default:SPrintf(s, "[B/S/%s]: Unknow",
+                            stDirEntry.stEntryType.bInUse==0?"F":"U");break;
+        }
+    }
+    return s;
+}
+
+exfat_temp_variable.cluster_count = 1;
+exfat_temp_variable.cluster_array[0] = Main_Boot_Region.BootSector.uiFirstClusterOfRootDirectory;
+for (exfat_temp_variable.cluster_iter = 0;
+     exfat_temp_variable.cluster_iter < exfat_temp_variable.cluster_count;
+     exfat_temp_variable.cluster_iter++)
+{
+    FSeek((((exfat_temp_variable.cluster_array[exfat_temp_variable.cluster_iter]-2)<<
+            Main_Boot_Region.BootSector.ucSectorsPerClusterShift) +
+           Main_Boot_Region.BootSector.uiClusterHeapOffset)<<
+          Main_Boot_Region.BootSector.ucBytesPerSectorShift);
+    struct tagDirCluster
+    {
+        local int dir_cluster = exfat_temp_variable.cluster_array[exfat_temp_variable.cluster_iter];
+        while( !FEof() )
+        {
+            ReadBytes(exfat_temp_variable.flags, FTell(), 1);
+            if (exfat_temp_variable.flags[0] == 0)
+            {
+                break;
+            }
+            DirectoryEntry_S stEntry;
+        }
+    }DirectoryCluster <read=DirectoryClusterRead>;
+}
+
+string DirectoryClusterRead(struct tagDirCluster& v)
+{
+    string s;
+    SPrintf(s, "Directory Cluster No: %d", v.dir_cluster);
+    return s;
+}
+
+    
+    
+

@@ -1,0 +1,104 @@
+//----------------------------------------------------------------------------
+//--- 010 Editor v2.0.2 Binary Template
+//
+// File:	EVSB_Symbol_Display
+// Author:	Kip Leitner, Panasonic, PSDC NJ, USA, kleitner@pavcal.com	
+// Revision:	1.0	21 January, 2006
+//
+// Purpose:	Decompose EVSB Over-the-Air (OTA) symbols for DTV Transmission	
+//
+// Ref:		ATSC Digital Television standard (A/53), Revision D 
+//		Including Ammendment 1
+//		19 July 2005
+//		Data Organization (Sect 5.3) 		 		
+//----------------------------------------------------------------------------
+// Setups for 010	View --> Width --> custom (832) to see segment synks
+//                      View --> Width --> custom  (64) to Field sync details
+// 
+// modify template for your own frame length
+const int Frame_Count = 951;
+
+
+//----------------------------------------------------------------------------
+typedef	struct SYNC_SEGMENT_EVEN
+		{
+		SetBackColor(cRed);
+		char Sync[4];
+		SetBackColor(cPurple);
+		char PN511[511];		
+		SetBackColor(cLtBlue);
+		char PN63_a[63];		
+		SetBackColor(cBlue);
+		char PN63_b[63];		
+		SetBackColor(cLtBlue);
+		char PN63_c[63];
+		SetBackColor(cLtGreen);
+		char VSB_Mode[24];
+		SetBackColor(cAqua);
+		char Kerdock[64];
+		SetBackColor(cNone);
+		char Reserved_a[28];
+		SetBackColor(cSilver);
+		char Reserved_b[12];		
+		} Sync_Segment_Even;
+
+typedef	struct SYNC_SEGMENT_ODD
+		{
+		SetBackColor(cLtRed);
+		char Sync[4];
+		SetBackColor(cPurple);
+		char PN511[511];		
+		SetBackColor(cLtBlue);
+		char PN63_a[63];		
+		SetBackColor(cBlue);
+		char PN63_b[63];		
+		SetBackColor(cLtBlue);
+		char PN63_c[63];
+		SetBackColor(cLtGreen);
+		char VSB_Mode[24];
+		SetBackColor(cAqua);
+		char Kerdock[64];
+		SetBackColor(cNone);
+		char Reserved_a[28];
+		SetBackColor(cSilver);
+		char Reserved_b[12];			
+		} Sync_Segment_Odd;
+
+typedef	struct DATA_SEGMENT_EVEN
+		{
+		SetBackColor(cRed);
+		char Data_Segment_Sync[4];
+		SetBackColor(cNone);
+		char Payload_Even[828];
+		} Data_Segment_Even;
+
+typedef	struct DATA_SEGMENT_ODD
+		{
+		SetBackColor(cLtRed);
+		char Data_Segment_Sync[4];
+		SetBackColor(cNone);
+		char Payload_Odd[828];
+		} Data_Segment_Odd;
+
+typedef	struct FIELD_EVEN
+		{
+		Sync_Segment_Even 	Sync_Seg_Even[1];
+		Data_Segment_Even	Data_Seg_Even[312];		
+		} Field_Even;
+
+typedef	struct FIELD_ODD
+		{
+		Sync_Segment_Odd	Sync_Seg_Odd[1];
+		Data_Segment_Odd	Data_Seg_Odd[312];		
+		} Field_Odd;
+
+typedef	struct FRAME
+		{
+		Field_Even	F_Even;
+		Field_Odd	F_Odd;
+		} Frame;
+	
+struct FILE
+	{
+	Frame Frames[Frame_Count];
+	} File;

@@ -1,0 +1,70 @@
+//--------------------------------------
+//--- 010 Editor v5.0 Binary Template
+//
+// File: SRecTemplate.bt
+// Author: Mario Ghecea 
+// Revision: 1A
+// Purpose: Parses Motorola S-REC
+//--------------------------------------
+typedef char RECORDTYPE [2];
+typedef char COUNT [2];
+typedef char ADDRESS16  [4];
+typedef char ADDRESS24  [6];
+typedef char ADDRESS32  [8];
+typedef char CHECKSUM   [2];
+
+local char hexval [10];
+local uint addrwidth;
+local uint rec = 1;
+
+typedef struct
+{
+    RECORDTYPE recordType;
+    COUNT count;
+    switch(recordType)
+    {
+        case "S0": // header           
+        case "S1": // 16-bit address record
+        case "S5": // total record count
+        case "S9": // termination 16-bit 
+            ADDRESS16 address16;
+            addrwidth = 4;
+            break;
+        case "S2":  // 24-bit address record
+        case "S8":  // termination 24-bit
+            ADDRESS24 address24;
+            addrwidth = 6;
+            break;
+        case "S3": // 32-bit address record
+        case "S7": // termination 32-bit
+            ADDRESS32 adress32;
+            addrwidth = 8;
+            break;
+        //case "S4":        
+        //case "S6": 
+        default:
+            break;     
+    }
+
+    local int i;
+    local int intval = 0;
+    local uint pow = 0;
+    local uint hexlen = 2;
+    local uint digit = 0;
+    for (i = 0; i < hexlen; i ++)
+    {             
+        digit = (count[i] - '0' > 9) ? count[i] - '7' : count[i] - '0';
+        intval += ((uint32) digit * (1 << 4 * ((hexlen - 1) - i)));
+    }    
+    local uint bytesPerLine = (uint32) ((intval - 1) * 2) - addrwidth;    
+    if (bytesPerLine != 0)
+        char data [(bytesPerLine)];
+    //Printf("rec# %d bpl: %d %X count : %s\n\r", rec++, bytesPerLine, intval, count);
+    char checksum [2];
+    char crlf[2];
+}SREC;
+
+while( !FEof() )
+{
+    SREC srec;
+}

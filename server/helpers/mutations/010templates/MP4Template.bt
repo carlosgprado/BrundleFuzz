@@ -1,0 +1,163 @@
+//-------------------------------------------------------------
+//--- 010 Editor v6.0.2 Binary Template
+//
+// File:      MP4.bt
+// Author:    Marian Denes
+// Revision:  2.1
+// Date:      2015.06.04
+// Purpose:   Defines a template for parsing MP4 and MOV files.
+//-------------------------------------------------------------
+
+BigEndian();
+
+local int64 pos;
+local int64 pos2;
+
+typedef union {
+        /*uint number;*/
+        char text[4];
+    }  _typ;
+
+string typeFullName(_typ& type) {
+    if (Memcmp(type.text, "ftyp", 4) == 0) return "File type compatibility box";
+    if (Memcmp(type.text, "mvhd", 4) == 0) return "Movie header box";
+    if (Memcmp(type.text, "iods", 4) == 0) return "Initial object descriptor box";
+    if (Memcmp(type.text, "trak", 4) == 0) return "Track box";
+    if (Memcmp(type.text, "udta", 4) == 0) return "Uset data box";
+    if (Memcmp(type.text, "mdat", 4) == 0) return "Movie (sample) data box";
+    if (Memcmp(type.text, "moov", 4) == 0) return "Moovie box";
+    if (Memcmp(type.text, "tkhd", 4) == 0) return "Track header box";
+    if (Memcmp(type.text, "mdia", 4) == 0) return "Media box";
+    if (Memcmp(type.text, "edts", 4) == 0) return "Edit box";
+    if (Memcmp(type.text, "elst", 4) == 0) return "Edit list";
+    return "I don't know the full name";
+    }
+
+string typeString(_typ& type) {
+    return "Type of the box: \"" + type.text + "\"";
+}
+
+// MessageBox(idOk, "", "GetCursorPos == %d", GetCursorPos());
+
+while(FTell() < FileSize() - 1) {
+    struct _box {
+        uint size <hidden=true>;
+        _typ type <bgcolor=cLtRed, fgcolor=cWhite, name="Box Type", open=false,
+                   name   =typeString/*, comment=typeFullName*/>;
+        if (Memcmp(type.text, "ftyp", 4) == 0) {
+            char major_brand[4] <bgcolor=cDkGreen, fgcolor=cWhite, name="Major brand"> ;
+            char minor_ver  [4] <bgcolor=cDkBlue,  fgcolor=cWhite, name="Minor version"> ;
+            uint comp_brands[(size - sizeof(size)      - sizeof(type) - sizeof(major_brand) -
+                                    sizeof(minor_ver)) / 4] <name    = "Compatible brands",
+                                                             comment = brandName, open=true>;
+        } else if (Memcmp(type.text, "moov", 4) == 0) {
+            pos = FTell();
+            while(FTell() < pos + size - sizeof(size) - sizeof(type))
+                struct _box2 {
+                    uint size <hidden=true>;
+                    _typ type <bgcolor=cLtRed, fgcolor=cWhite, name="Box Type", open=false,
+                               name   =typeString/*, comment=typeFullName*/>;
+                    if (Memcmp(type.text, "mvhd", 4) == 0) {
+                            char version  <hidden=true>;
+                            char flags[3] <hidden=true>;
+                            uint crTime   <bgcolor=cLtGreen, fgcolor=cBlack, name="Creation Time",     open=false>;
+                            uint mdTime   <bgcolor=cPurple,  fgcolor=cWhite, name="Modification Time", open=false>;
+                            uint tmScale  <name="Time scale",comment="Number of units per 1 second">;
+                            uint duration <name="Duration",  comment="In units defined in the previous field">;
+                            char rest[size - sizeof(size)    - sizeof(type)   - sizeof(version) -
+                                             sizeof(flags)   - sizeof(crTime) - sizeof(mdTime) -
+                                             sizeof(tmScale) - sizeof(duration)];
+                    } else if (Memcmp(type.text, "trak", 4) == 0) {
+                            pos2 = FTell();
+                            while(FTell() < pos2 + size - sizeof(size) - sizeof(type))
+                                struct _box3 {
+                                    uint size <hidden=true>;
+                                    _typ type <bgcolor=cLtRed,   fgcolor=cWhite, name="Box Type", open=false,
+                                               name   = typeString/*, comment=typeFullName*/>;
+                                    if (Memcmp(type.text, "tkhd", 4) == 0) {
+                                            char version  <hidden=true>;
+                                            char flags[3] <hidden=true>;
+                                            uint crTime   <bgcolor=cLtGreen, fgcolor=cBlack, name="Creation Time",     open=false>;
+                                            uint mdTime   <bgcolor=cPurple,  fgcolor=cWhite, name="Modification Time", open=false>;
+                                            uint trkID    <                                  name="Track ID",          open=false>;
+                                            uint reserv   <hidden = true,                    name="Reserved">;
+                                            uint duration <                                  name="Duration",          open=false>;
+                                            char rest[size - sizeof(size)  - sizeof(type)   - sizeof(version) -
+                                                             sizeof(flags) - sizeof(crTime) - sizeof(mdTime)  -
+                                                             sizeof(trkID) - sizeof(reserv) - sizeof(duration)];
+                                    } else if (Memcmp(type.text, "edts", 4) == 0) {
+                                            struct _box4 {
+                                                uint size <hidden=true>;
+                                                _typ type <bgcolor=cLtRed,   fgcolor=cWhite, name="Box Type", open=false,
+                                                           name   = typeString>;
+                                                char version  <hidden=true>;
+                                                char flags[3] <hidden=true>;
+                                                uint entrs<name   ="Number of entries">;
+                                                struct {
+                                                    uint trDuration <name="Track duration">;
+                                                    uint mediaTime  <name="Media time">;
+                                                    uint mediaRate  <name="Media rate">;
+                                                } entry[entrs] <open=true>;
+                                            } box <optimize=false, open=true, comment=boxName4>;
+                                    } else
+                                        char rest[size - sizeof(size) - sizeof(type)];
+                                } box <optimize=false, open=true, comment=boxName3>;
+                    } else
+                        char rest[size - sizeof(size) - sizeof(type)];
+                    } box <optimize=false, open=true, comment=boxName2>;
+        } else
+            char rest[size - sizeof(size) - sizeof(type)];
+        } box <optimize=false, open=true, comment=boxName>;
+}
+
+string boxName(_box& box) {
+    return box.type.text + " (" + typeFullName(box.type) + ")";;
+}
+
+string boxName2(_box2& box) {
+    return box.type.text + " (" + typeFullName(box.type) + ")";
+}
+
+string boxName3(_box3& box) {
+    return box.type.text + " (" + typeFullName(box.type) + ")";
+}
+
+string boxName4(_box4& box) {
+    return box.type.text + " (" + typeFullName(box.type) + ")";
+}
+
+string brandName(uint brand) {
+    local char text[4];
+    local int  i;
+
+    for (i = 0; i < 4; ++i)
+        text[i] = brand >> 8 * (3 - i)  &  0xFF;
+    return text;
+}
+
+// string boxName5(_box5& box) {
+//     return box.type.text + " (" + typeFullName(box.type) + ")";
+// }
+
+// local int i;
+
+// struct DATABLOCK {
+//     int dataID;
+//     uchar dataArray[16];
+// };
+
+
+// pos = FTell(); // save read position
+// for( i = 0; i < 4; i++ ) {
+//     DATABLOCK data <read=ReadDataBlock>;
+// }
+// FSeek( pos );  // restore read position
+//
+// // Custom read function
+// string ReadDataBlock( DATABLOCK &d )
+// {
+// //    string str;
+// //    SPrintf( str, "ID = '%d'", d.dataID );
+//     FTell( box[i].type] );
+//     return str;
+// }

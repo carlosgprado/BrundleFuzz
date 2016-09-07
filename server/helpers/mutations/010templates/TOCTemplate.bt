@@ -1,0 +1,126 @@
+//--------------------------------------
+//--- 010 Editor v2.1.4 Binary Template
+//
+// File:	TOCTemplate.bt
+// Author:	L. Potjewijd
+// Revision:	1.22
+// Purpose:	Eudora 7.1.0.9 mailbox .TOC files
+//--------------------------------------
+enum <WORD> type   {In,Out,Junk,Trash,User,IMAP=8};
+enum <WORD> class  {user,system};
+enum <WORD> stat   {unread,read,replied,forwarded,redirected,rebuilt,sendable,queued,sent,unsent,timed,sending,recovered};
+
+typedef struct
+{	char	EudoraVersion[8];	// might contain something else, too
+	char	MailboxName[32];	// this name is used in the window title
+	type 	MailboxType;
+	short	Unknown0;
+	class	MailboxClass;
+	struct
+	{	short	TopLeftX;   	// default = 80
+		short	TopLeftY;	    // default = 80
+		short	BottomRightX;	// default = 565
+		short	BottomRightY;	// default = 415
+	} WindowPosition;
+	//  -1 = default size and location.
+	//  For non-maximized and non-minimized windows only, 
+	//  relative to the main window upper left corner. 
+	//  All values are clipped to main window boundaries 
+	//  on next opening, minimum window size is 112*27 (X*Y) 
+	//  and takes precedence over clipping.
+
+	struct
+	{	short	StatusColumnWidth;	    // default = 2
+		short	JunkScoreColumnWidth;	// default = 4
+		short	PriorityColumnWidth;	// default = 2
+		short	AttachmentColumnWidth;	// default = 2
+		short	LabelColumnWidth;	    // default = 8
+		short	WhoColumnWidth;	    	// default = 16
+		short	DateColumnWidth;	    // default = 16
+		short	SizeColumnWidth;    	// default = 2
+	} ColumnWidths;
+	//  Measurement unit is unknown (not pixels); pica's?
+	//  Window size takes precedence over column width.
+	//  The server and mood status columns are always 
+	//  displayed with a width of 2 when the window is 
+	//  opened, the subject column gets whatever is left.
+	//  -1 means default width.
+	short	Unknown1;
+	long	HighestMsgSeqNumber;
+	short	Unknown2[4];
+    short   PreviewPaneDivider;
+	short	Unknown3[5];
+	long	NewMessageOffsetMBXfile;	//  = FileSize ( .mbx file ) + 1
+	short	Unknown4;
+	short	MessagesInMailbox;  		//  number of active messages in mailbox
+} TOChdr; 	// 104 bytes in total
+
+typedef struct
+{	long	OffsetMBXfile <format=hex>;
+	long	Length;
+	time_t	GMTtimestamp;
+	stat	Status;
+SetForeColor(cGreen);
+	ubyte	Flags1		:8 <format=binary>;
+		//  LSB	SignatureUsed	was: alternate signature
+		//  .	obsolete	was: signature used
+		//  .	WordwrapON
+		//  .	TabsInBody
+		//  .	KeepCopyOfSentMessage
+		//  .	InlineTextAttachment
+		//  .	ReturnReceiptTo
+		//  MSB	QuotedPrintable
+	ubyte	Flags2		:8 <format=binary>;
+		//  LSB	MIMEencoded
+		//  .	UUencoded	neither means BINHEX encoded
+		//  .	obsolete	was: ShowAllHeaders
+		//  .	
+		//  .	
+		//  .	Text/HTML/Enriched
+		//  .	ReceiptRequestPending
+		//  MSB	Attachments
+SetForeColor(cNone);
+	short	Priority;
+	char	LocalDateTime[32];
+	char	Who[64];
+	char	Subject[64];
+	struct
+	{	short	TopLeftX;
+		short	TopLeftY;
+		short	BottomRightX;
+		short	BottomRightY;
+	} WindowPosition;
+
+	short	Label;
+	long	OffsetLMOSfile <format=hex>;
+	long	MsgSeqNumber;
+SetForeColor(cPurple);
+	ubyte	Flags3		:8 <format=binary>;
+		//  LSB	
+		//  .	
+		//  .	
+		//  .	
+		//  .	
+		//  .	
+		//  .	
+		//  MSB	looks like 'Return Receipt To:' header flag
+	ubyte	Flags4		:8 <format=binary>;
+		//  LSB	
+		//  .	
+		//  .	
+		//  .	
+		//  .	
+		//  .	
+		//  .	
+		//  MSB	
+SetForeColor(cNone);
+	short	Unknown[10];
+} TOCmsg; // 218 bytes in total
+
+//====================================================================
+
+LittleEndian(); 
+TOChdr hdr;
+while( !FEof() )
+{	TOCmsg	msg;
+}

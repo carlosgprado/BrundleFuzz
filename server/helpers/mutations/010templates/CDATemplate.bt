@@ -1,0 +1,31 @@
+//------------------------------------
+//--- 010 Editor v1.0 Binary Template
+//
+// Name: CDATemplate.bt
+// Author: Szabolcs Dávid
+// Purpose: CDA template for Audio CD
+//     header Information
+//------------------------------------
+typedef struct
+{
+	char szHeader[8];
+	char szFormat[8];
+	DWORD dwEOLn;
+} CDAFILEHEADER;
+
+typedef struct
+{
+	WORD	wTrackFirst;
+	WORD	wTrackCount;
+	DWORD	dwVolumeSerialNumber;
+	DWORD	dwStartFrame;
+	DWORD	dwLengthFrame;
+	DWORD	dwStartMS;
+	DWORD	dwLengthMS;
+} CDAINFORMATION;
+
+LittleEndian();
+CDAFILEHEADER Header;
+CDAINFORMATION Information;
+
+

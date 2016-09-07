@@ -1,0 +1,145 @@
+
+//
+// 010 Editor v4.0.3d Binary Template
+//
+// File:     RegistryPolicyFileTemplate.bt
+// Author:   Blake Frantz (blakefrantz at gmail dot com)
+// Revision: 1.0, Last Updated on 6 Mar 2013.
+// Purpose:  Parse registry.pol files.
+//           See http://msdn.microsoft.com/en-us/library/windows/desktop/aa374407(v=vs.85).aspx
+//
+
+const DWORD REG_SZ = 1;
+const DWORD REG_EXPAND_SZ = 2;
+const DWORD REG_BINARY = 3;
+const DWORD REG_DWORD = 4;
+const DWORD REG_MULTI_SZ = 7;
+
+typedef struct
+{   
+    CHAR LBRACKET[2] <hidden=true>;
+    wstring Key;
+    SHORT seperator0 <hidden=true>;
+    wstring ValueName;
+    SHORT seperator1 <hidden=true>;
+    DWORD Type <comment=DataValueTypeComment>;
+    SHORT seperator2 <hidden=true>;
+    DWORD DataSize;
+    SHORT seperator3 <hidden=true>;
+    union {
+        UBYTE Raw[DataSize]; 
+        DWORD Int;
+        wstring String;
+    } Data;   
+
+    CHAR RBRACKET[2] <hidden=true>;
+
+} REGISTRY_RECORD <comment=RegistryRecordComment>;
+
+string DataValueTypeComment( DWORD type )
+{
+    string comment = "";
+
+    switch ( type )
+    {
+        case REG_SZ       : comment = "REG_SZ";        break;
+        case REG_EXPAND_SZ: comment = "REG_EXPAND_SZ"; break;
+        case REG_BINARY   : comment = "REG_BINARY";    break;
+        case REG_DWORD    : comment = "REG_DWORD";     break;
+        case REG_MULTI_SZ : comment = "REG_MULTI_SZ";  break;
+        default           : comment = "UNKNOWN_TYPE";  break;
+    }
+
+    return comment;
+}
+
+string RegistryRecordComment( REGISTRY_RECORD &record )
+{
+    string comment;
+
+    uchar tempBuffer[ sizeof(record) ];
+    ReadBytes( tempBuffer, startof(record), sizeof(record) );
+
+    string result;
+    ChecksumAlgArrayStr( CHECKSUM_CRC32, result, tempBuffer, sizeof(record));
+
+    if(WStrnicmp(record.ValueName, "**Del.", 6) == 0 )
+    {    
+        SPrintf(comment, "ValueName '%s' will be deleted from '%s'. CRC=%s", SubStr(record.ValueName, 6), record.Key, result);
+    }
+    else if(WStrnicmp(record.ValueName, "**DeleteValues", 14) == 0 )
+    {
+        SPrintf(comment, "ValueNames '%s' will be deleted from '%s'. CRC=%s", SubStr(record.ValueName, 14), record.Key, result);
+    }
+    else if(WStrnicmp(record.ValueName, "**DelVals", 9) == 0 )
+    {
+        SPrintf(comment, "All ValueNames under '%s' will be deleted. CRC=%s", record.Key, result);
+    }
+    else if(WStrnicmp(record.ValueName, "**DeleteKeys", 12) == 0 )
+    {
+        SPrintf(comment, "Keys '%s' under '%s' will be deleted. CRC=%s", SubStr(record.ValueName, 12), record.Key, result);
+    }
+    else if(WStrnicmp(record.ValueName, "**SecureKey=0", 13) == 0 )
+    {
+        SPrintf(comment, "The DACL on '%s' will be reset to align with the root's DACL. CRC=%s", record.Key, result);
+    }
+    else if(WStrnicmp(record.ValueName, "**SecureKey=1", 13) == 0 )
+    {
+        SPrintf(comment, "The DACL on '%s' will be set as follows: Administrators, SYSTEM = Full; Users = Read Only. CRC=%s", record.Key, result);
+    }
+    else if(record.Type == REG_DWORD)
+    {
+        SPrintf(comment, "%s:%s = (REG_DWORD) %d. CRC=%s", record.Key, record.ValueName, record.Data.Int, result);    
+    }
+    else if(record.Type == REG_SZ)
+    {
+        SPrintf(comment, "%s:%s = (REG_SZ) '%s'. CRC=%s", record.Key, record.ValueName, record.Data.String, result);        
+    }
+    else if(record.Type == REG_EXPAND_SZ)
+    {
+        SPrintf(comment, "%s:%s = (REG_EXPAND_SZ) ... CRC=%s", record.Key, record.ValueName, result);        
+    }
+    else if(record.Type == REG_BINARY)
+    {
+        SPrintf(comment, "%s:%s = (REG_BINARY) ... CRC=%s", record.Key, record.ValueName, result);        
+    }
+    else if(record.Type == REG_MULTI_SZ)
+    {
+        SPrintf(comment, "%s:%s = (REG_MULTI_SZ) ... CRC=%s", record.Key, record.ValueName, result);        
+    }
+    else
+    {
+        SPrintf(comment, "%s:%s (%s)", record.Key, record.ValueName, result);        
+    }
+
+    return comment;
+}
+
+BigEndian(); 
+
+DWORD REGFILE_SIGNATURE;
+
+LittleEndian(); 
+
+DWORD REGISTRY_FILE_VERSION;
+
+if (REGFILE_SIGNATURE !=0x50526567 || REGISTRY_FILE_VERSION != 0x01 )
+{
+    Warning( "File is not Registry Policy File Format Version 1. Template stopped." );
+    return -1;
+}
+
+local int records = 0;
+
+while( !FEof() )
+{
+    REGISTRY_RECORD record;
+    records++;
+}
+
+local int i;
+
+for (i=0; i < records; i++)
+{
+    Printf("%s\\%s\n", record[i].Key, record[i].ValueName);
+}

@@ -1,0 +1,33 @@
+//--------------------------------------
+//--- 010 Editor v3.2.2f Binary Template
+//
+// File: WinhexPosTemplate
+// Author: Artur Babecki
+// Revision: 21.02.2012
+// Purpose: the WinHex (editor by X-Ways Software Technology AG )
+//          stores the find results in the winhex.pos file.
+//          This template parses its structure and allows to 
+//          build the script to convert WinHex results into set
+//          of bookmarks of 010Editor
+//--------------------------------------
+string Wh_WinhexID <comment="file signature">;
+uint32 Wh_Flags <comment="currently - 0x00, 0X01 - Unicode">;
+uint32 Wh_n_ch <comment="number of chunks">;
+struct  chunk {
+	    uint16 Chsize <comment="chunk size">;
+	    uint16 Chflags ;
+	    uint64 Offset;
+	    uint64 Time;
+	    FILETIME date;
+	    uchar RGB[3];
+	    uchar Padding;
+	    uint16 DescrLen;
+	    string Descr;
+if(Chflags&0x100) {
+	    uint64 Relative_Offset;
+	    uint64 FileId;
+	    uint16 PathLen;
+	    string Path;
+}
+//Printf("%X\n",chflags);
+} wh_pos[Wh_n_ch] <optimize=false>;

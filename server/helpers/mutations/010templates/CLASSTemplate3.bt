@@ -1,0 +1,1477 @@
+//--------------------------------------
+//--- 010 Editor v5.0 Binary Template
+// Author: Pishchik Ilya L. (RUS)
+// Purpose: A template for parsing Java Class (JVM) Files full
+//
+// You can get the document from the Java
+// Pages http://docs.oracle.com/javase/specs/jvms/se7/html/
+//--------------------------------------
+
+BigEndian();
+
+typedef ubyte u1;
+typedef uint16 u2;
+typedef uint32 u4;
+typedef uint64 u8;
+typedef byte i1;
+typedef int16 i2;
+typedef int32 i4;
+
+enum Constant_pool
+{
+ CONSTANT_Class=7,
+ CONSTANT_Fieldref=9,
+ CONSTANT_Methodref=10,
+ CONSTANT_InterfaceMethodref=11,
+ CONSTANT_String=8,
+ CONSTANT_Integer=3,
+ CONSTANT_Float=4,
+ CONSTANT_Long=5,
+ CONSTANT_Double=6,
+ CONSTANT_NameAndType=12,
+ CONSTANT_Utf8=1,
+ CONSTANT_MethodHandle=15,
+ CONSTANT_MethodType=16,
+ CONSTANT_InvokeDynamic=18
+};
+
+enum<u2> access_property_flags
+{
+ ACC_PUBLIC=0x0001,
+ ACC_PRIVATE=0x0002,
+ ACC_PROTECTED=0x0004,
+ ACC_STATIC=0x0008,
+ ACC_FINAL=0x0010,
+ ACC_SUPER_ACC_SYNCHRONIZED=0x0020,
+ ACC_BRIDGE_ACC_VOLATILE=0x0040,
+ ACC_VARARGS_ACC_TRANSIENT=0x0080,
+ ACC_NATIVE=0x0100,
+ ACC_INTERFACE=0x0200,
+ ACC_ABSTRACT=0x0400,
+ ACC_STRICT=0x0800,
+ ACC_SYNTHETIC=0x1000,
+ ACC_ANNOTATION=0x2000,
+ ACC_ENUM=0x4000
+};
+
+enum enum_type
+{
+ Class,
+ Method,
+ Field,
+ Nested_Class
+};
+
+
+enum <u1> enum_opcodes
+{
+nop=0x00,
+aconst_null=0x01,
+iconst_m1=0x02,
+iconst_0=0x03,
+iconst_1=0x04,
+iconst_2=0x05,
+iconst_3=0x06,
+iconst_4=0x07,
+iconst_5=0x08,
+lconst_0=0x09,
+lconst_1=0x0a,
+fconst_0=0x0b,
+fconst_1=0x0c,
+fconst_2=0x0d,
+dconst_0=0x0e,
+dconst_1=0x0f,
+bipush=0x10,
+sipush=0x11,
+ldc=0x12,
+ldc_w=0x13,
+ldc2_w=0x14,
+iload=0x15,
+lload=0x16,
+fload=0x17,
+dload=0x18,
+aload=0x19,
+iload_0=0x1a,
+iload_1=0x1b,
+iload_2=0x1c,
+iload_3=0x1d,
+lload_0=0x1e,
+lload_1=0x1f,
+lload_2=0x20,
+lload_3=0x21,
+fload_0=0x22,
+fload_1=0x23,
+fload_2=0x24,
+fload_3=0x25,
+dload_0=0x26,
+dload_1=0x27,
+dload_2=0x28,
+dload_3=0x29,
+aload_0=0x2a,
+aload_1=0x2b,
+aload_2=0x2c,
+aload_3=0x2d,
+iaload=0x2e,
+laload=0x2f,
+faload=0x30,
+daload=0x31,
+aaload=0x32,
+baload=0x33,
+caload=0x34,
+saload=0x35,
+istore=0x36,
+lstore=0x37,
+fstore=0x38,
+dstore=0x39,
+astore=0x3a,
+istore_0=0x3b,
+istore_1=0x3c,
+istore_2=0x3d,
+istore_3=0x3e,
+lstore_0=0x3f,
+lstore_1=0x40,
+lstore_2=0x41,
+lstore_3=0x42,
+fstore_0=0x43,
+fstore_1=0x44,
+fstore_2=0x45,
+fstore_3=0x46,
+dstore_0=0x47,
+dstore_1=0x48,
+dstore_2=0x49,
+dstore_3=0x4a,
+astore_0=0x4b,
+astore_1=0x4c,
+astore_2=0x4d,
+astore_3=0x4e,
+iastore=0x4f,
+lastore=0x50,
+fastore=0x51,
+dastore=0x52,
+aastore=0x53,
+bastore=0x54,
+castore=0x55,
+sastore=0x56,
+pop=0x57,
+pop2=0x58,
+dup=0x59,
+dup_x1=0x5a,
+dup_x2=0x5b,
+dup2=0x5c,
+dup2_x1=0x5d,
+dup2_x2=0x5e,
+swap=0x5f,
+iadd=0x60,
+ladd=0x61,
+fadd=0x62,
+dadd=0x63,
+isub=0x64,
+lsub=0x65,
+fsub=0x66,
+dsub=0x67,
+imul=0x68,
+lmul=0x69,
+fmul=0x6a,
+dmul=0x6b,
+idiv=0x6c,
+ldiv=0x6d,
+fdiv=0x6e,
+ddiv=0x6f,
+irem=0x70,
+lrem=0x71,
+frem=0x72,
+drem=0x73,
+ineg=0x74,
+lneg=0x75,
+fneg=0x76,
+dneg=0x77,
+ishl=0x78,
+lshl=0x79,
+ishr=0x7a,
+lshr=0x7b,
+iushr=0x7c,
+lushr=0x7d,
+iand=0x7e,
+land=0x7f,
+ior=0x80,
+lor=0x81,
+ixor=0x82,
+lxor=0x83,
+iinc=0x84,
+i2l=0x85,
+i2f=0x86,
+i2d=0x87,
+l2i=0x88,
+l2f=0x89,
+l2d=0x8a,
+f2i=0x8b,
+f2l=0x8c,
+f2d=0x8d,
+d2i=0x8e,
+d2l=0x8f,
+d2f=0x90,
+i2b=0x91,
+i2c=0x92,
+i2s=0x93,
+lcmp=0x94,
+fcmpl=0x95,
+fcmpg=0x96,
+dcmpl=0x97,
+dcmpg=0x98,
+ifeq=0x99,
+ifne=0x9a,
+iflt=0x9b,
+ifge=0x9c,
+ifgt=0x9d,
+ifle=0x9e,
+if_icmpeq=0x9f,
+if_icmpne=0xa0,
+if_icmplt=0xa1,
+if_icmpge=0xa2,
+if_icmpgt=0xa3,
+if_icmple=0xa4,
+if_acmpeq=0xa5,
+if_acmpne=0xa6,
+goto=0xa7,
+jsr=0xa8,
+ret=0xa9,
+tableswitch=0xaa,
+lookupswitch=0xab,
+ireturn=0xac,
+lreturn=0xad,
+freturn=0xae,
+dreturn=0xaf,
+areturn=0xb0,
+Return=0xb1,
+getstatic=0xb2,
+putstatic=0xb3,
+getfield=0xb4,
+putfield=0xb5,
+invokevirtual=0xb6,
+invokespecial=0xb7,
+invokestatic=0xb8,
+invokeinterface=0xb9,
+invokedynamic=0xba,
+new=0xbb,
+newarray=0xbc,
+anewarray=0xbd,
+arraylength=0xbe,
+athrow=0xbf,
+checkcast=0xc0,
+instanceof=0xc1,
+monitorenter=0xc2,
+monitorexit=0xc3,
+wide=0xc4,
+multianewarray=0xc5,
+ifnull=0xc6,
+ifnonnull=0xc7,
+goto_w=0xc8,
+jsr_w=0xc9,
+breakpoint=0xca,
+impdep1=0xfe,
+impdep2=0xff
+};
+
+enum <u1> enum_array_type
+{
+    no_body=0,
+    index_body=1,
+    index_const_body=2,
+    sipush_body=3,
+    bipush_body=4, 
+    newarray_body=5,
+    indexbyte_1_2_body=6,
+    branchbyte1_2_body=7,
+    branchbyte1_4_body=8, 
+    invokeinterface_body=9,
+    invokedynamic_body=10,
+    multianewarray_body=11,
+    wide_body=12,
+    tableswitch_body=13,
+    lookupswitch_body=14,
+    index_v2_body=15
+};
+
+
+enum <u1> enum_opcodes_body_type
+{
+ T_BOOLEAN=4,
+ T_CHAR=5,
+ T_FLOAT=6,
+ T_DOUBLE=7,
+ T_BYTE=8,
+ T_SHORT=9,
+ T_INT=10,
+ T_LONG=11
+};
+
+
+const u4 address_constant_pool=0xA;
+const u4 address_constant_pool_count=0x8;
+const u2 constant_pool_count=ReadUShort(address_constant_pool_count)-1;
+
+local u8 map_address_constant_pool[constant_pool_count]<format=hex>;
+local u1 array_opcodes_body_type[256];
+
+
+array_opcodes_body_type[tableswitch]=tableswitch_body;//170
+array_opcodes_body_type[lookupswitch]=lookupswitch_body;//171
+
+
+array_opcodes_body_type[bipush]=bipush_body; //16 +byte
+
+array_opcodes_body_type[iload]=index_body; //21 +index
+array_opcodes_body_type[lload]=index_body; //22 +index
+array_opcodes_body_type[fload]=index_body; //23 +index
+array_opcodes_body_type[dload]=index_body; //24 +index
+array_opcodes_body_type[aload]=index_body; //25 +index
+
+array_opcodes_body_type[istore]=index_body;  //54 +index
+array_opcodes_body_type[lstore]=index_body;  //55 +index
+array_opcodes_body_type[fstore]=index_body; //56 +index
+array_opcodes_body_type[dstore]=index_body; //57 +index 
+array_opcodes_body_type[astore]=index_body;  //58 +index 
+
+array_opcodes_body_type[sipush]=sipush_body; //17 +byte1,byte2
+array_opcodes_body_type[ldc]=index_v2_body; //18 +index
+array_opcodes_body_type[ldc_w]=indexbyte_1_2_body; //19 +indexbyte1,indexbyte2
+array_opcodes_body_type[ldc2_w]=indexbyte_1_2_body;//20 +indexbyte1,indexbyte2
+
+array_opcodes_body_type[iinc]=index_const_body; //132 +index,const
+
+array_opcodes_body_type[ifeq]=branchbyte1_2_body; //153 +branchbyte1,branchbyte2
+array_opcodes_body_type[ifne]=branchbyte1_2_body; //154 +branchbyte1,branchbyte2
+array_opcodes_body_type[iflt]=branchbyte1_2_body; //155 +branchbyte1,branchbyte2
+array_opcodes_body_type[ifge]=branchbyte1_2_body; //156 +branchbyte1,branchbyte2
+array_opcodes_body_type[ifgt]=branchbyte1_2_body; //157 +branchbyte1,branchbyte2
+array_opcodes_body_type[ifle]=branchbyte1_2_body; //158 +branchbyte1,branchbyte2
+
+array_opcodes_body_type[if_icmpeq]=branchbyte1_2_body; //159 +branchbyte1,branchbyte2
+array_opcodes_body_type[if_icmpne]=branchbyte1_2_body; //160 +branchbyte1,branchbyte2
+array_opcodes_body_type[if_icmplt]=branchbyte1_2_body; //161 +branchbyte1,branchbyte2
+array_opcodes_body_type[if_icmpge]=branchbyte1_2_body; //162 +branchbyte1,branchbyte2
+array_opcodes_body_type[if_icmpgt]=branchbyte1_2_body; //163 +branchbyte1,branchbyte2
+array_opcodes_body_type[if_icmple]=branchbyte1_2_body; //164 +branchbyte1,branchbyte2
+
+array_opcodes_body_type[if_acmpeq]=branchbyte1_2_body; //165 +branchbyte1,branchbyte2
+array_opcodes_body_type[if_acmpne]=branchbyte1_2_body; //166 +branchbyte1,branchbyte2
+
+array_opcodes_body_type[goto]=branchbyte1_2_body; //167 +branchbyte1,branchbyte2
+array_opcodes_body_type[jsr]=branchbyte1_2_body; //168 +branchbyte1,branchbyte2
+
+array_opcodes_body_type[ret]=index_body;//169 +index
+
+array_opcodes_body_type[getstatic]=indexbyte_1_2_body; //178 +indexbyte1,indexbyte2
+array_opcodes_body_type[putstatic]=indexbyte_1_2_body; //179 +indexbyte1,indexbyte2
+
+array_opcodes_body_type[getfield]=indexbyte_1_2_body; //180 +indexbyte1,indexbyte2
+array_opcodes_body_type[putfield]=indexbyte_1_2_body; //181 +indexbyte1,indexbyte2
+
+array_opcodes_body_type[new]=indexbyte_1_2_body; //187 +indexbyte1,indexbyte2
+array_opcodes_body_type[newarray]=newarray_body; //188 +atype
+
+array_opcodes_body_type[invokevirtual]=indexbyte_1_2_body; //182 +indexbyte1,indexbyte2
+array_opcodes_body_type[invokespecial]=indexbyte_1_2_body; //183 +indexbyte1,indexbyte2
+array_opcodes_body_type[invokestatic]=indexbyte_1_2_body; //184 +indexbyte1,indexbyte2
+
+array_opcodes_body_type[anewarray]=indexbyte_1_2_body; //189 +indexbyte1,indexbyte2
+array_opcodes_body_type[checkcast]=indexbyte_1_2_body; //192 +indexbyte1,indexbyte2
+array_opcodes_body_type[instanceof]=indexbyte_1_2_body; //193 +indexbyte1,indexbyte2
+
+array_opcodes_body_type[wide]=wide_body; //196 (iload,fload,aload,lload,dload,istore,fstore,astore,lstore,dstore,ret),indexbyte1,indexbyte2 or iinc,indexbyte1,indexbyte2,constbyte1,constbyte2
+array_opcodes_body_type[multianewarray]=multianewarray_body; //197 indexbyte1,indexbyte2,dimensions
+
+array_opcodes_body_type[ifnull]=branchbyte1_2_body; //198 +branchbyte1,branchbyte2
+array_opcodes_body_type[ifnonnull]=branchbyte1_2_body; //199 +branchbyte1,branchbyte2
+
+array_opcodes_body_type[invokeinterface]=invokeinterface_body; //185 +indexbyte1,indexbyte2,count,0
+array_opcodes_body_type[invokedynamic]=invokedynamic_body; //186 +indexbyte1,indexbyte2,0,0
+array_opcodes_body_type[goto_w]=branchbyte1_4_body;//200 +branchbyte1,branchbyte2,branchbyte3,branchbyte4
+array_opcodes_body_type[jsr_w]=branchbyte1_4_body; //201 +branchbyte1,branchbyte2,branchbyte3,branchbyte4
+
+/*
++ConstantValue OK
++Code OK
++StackMapTable OK!
++Exceptions OK
++InnerClasses OK
++EnclosingMethod OK
++Synthetic OK
++Signature OK
++SourceFile OK
++SourceDebugExtension
++LineNumberTable OK
++LocalVariableTable OK
++LocalVariableTypeTable ?
++Deprecated OK
++RuntimeVisibleAnnotations OK
++RuntimeInvisibleAnnotations OK
++RuntimeVisibleParameterAnnotations OK
++RuntimeInvisibleParameterAnnotations OK
++AnnotationDefault OK
++BootstrapMethods*/
+
+struct element_value;
+
+typedef struct{
+ u2 type_index;
+ u2 num_element_value_pairs;
+ if(0<num_element_value_pairs)
+ {
+
+
+  struct{
+   u2 element_name_index<comment=Name_OnComment>;
+   element_value value;
+  }element_value_pairs[num_element_value_pairs]<optimize=false>;
+  
+
+
+ }
+}annotation<comment=annotation_OnComment>;
+
+typedef struct{
+ u1 tag;
+  if(tag=='e')
+  {
+   struct{
+    u2 type_name_index<comment=Name_OnComment>;
+    u2 const_name_index<comment=Name_OnComment>;
+   }enum_const_value<comment="enum">;
+  } 
+  else if(tag=='c')
+  {
+   u2 class_info_index;
+  }
+  else if(tag=='@')
+  {
+   annotation annotation_value;
+  }
+  else if(tag=='[')
+  {
+   struct{   
+    u2 num_values;
+    element_value values[num_values]<optimize=false>;
+   }array_value<comment="array">;
+  }
+  else
+  {
+   //B,C,D,F,I,J,S Z,or s. 
+   u2 const_value_index<comment=Name_OnComment>;
+  }
+}element_value<comment=element_value_OnComment>;
+
+typedef struct{
+    u1 tag; 
+    /*Top_variable_info  0
+    Integer_variable_info 1
+    Float_variable_info 2
+    Double_variable_info 3
+    Long_variable_info 4
+    Null_variable_info 5
+    UninitializedThis_variable_info 6*/
+    if(tag==7)
+    {
+     //Object_variable_info 7
+     u2 cpool_index<comment=Name_OnComment>;
+    }
+    else if(tag==8)
+    {
+     //Uninitialized_variable_info//Object_variable_info 7 8
+     u2 offset;
+    }   
+}verification_type_info;
+
+typedef struct{
+   u1 frame_type;//same_frame
+   if(frame_type>=64&&frame_type<=127)
+   { 
+     //same_locals_1_stack_item_frame
+     verification_type_info stack[1]<optimize=false>;
+   }
+   else if(frame_type==247)
+   { 
+    //same_locals_1_stack_item_frame_extended
+    u2 offset_delta;
+    verification_type_info stack[1];
+   }
+   else if(frame_type>=248&&frame_type<=251)
+   {
+    //chop_frame or same_frame_extended
+    u2 offset_delta;
+   }
+   else if(frame_type>=252&&frame_type<=254)
+   {
+     //append_frame
+     u2 offset_delta;
+     verification_type_info locals[frame_type - 251]<optimize=false>;
+   }
+   else if(frame_type==255)
+   {
+    //full_frame
+    u2 offset_delta;
+    u2 number_of_locals;
+    if(0<number_of_locals)verification_type_info locals[number_of_locals]<optimize=false>;
+    u2 number_of_stack_items;
+    if(0<number_of_stack_items)verification_type_info stack[number_of_stack_items]<optimize=false>;
+   }
+}stack_map_frame<comment=stack_map_frame_OnComment>;
+
+typedef struct(int hidden,u8 offsets){
+   
+ if(exists(hidden))
+ {
+   u1 operation<format=hex>;
+   switch(array_opcodes_body_type[operation]) 
+   {
+    case index_body:
+    case index_v2_body:
+     u1 index; 
+     break;
+    case index_const_body:
+     u1 index; 
+     i1 _const<name="const">;
+     break;
+    case sipush_body:
+     u2 _byte<name="byte">; //byte1,byte2;
+     break;
+    case bipush_body:
+     u1 _byte<name="byte">;
+     break;
+    case newarray_body:
+     u1 atype;
+     break;
+    case multianewarray_body:
+        u2 indexbyte; //indexbyte1,indexbyte2;
+        u1 dimensions;
+     break;
+    case wide_body:
+        u1 operation2;
+        u2 indexbyte; //indexbyte1,indexbyte2;
+        if(operation2==iinc)
+        {
+            u2 constbyte; //constbyte1,constbyte2;
+        }
+     break;
+    case tableswitch_body:
+      local u4 len=4-(offsets+1)%4;
+      if(len<4) u1 byte_pad[len];
+      i4 defaultbyte; //defaultbyte1,defaultbyte2,defaultbyte3,defaultbyte4
+      i4 lowbyte; //lowbyte1,lowbyte2,lowbyte3,lowbyte4
+      i4 highbyte; //highbyte1,highbyte2,highbyte3,highbyte4
+      u4 jump[highbyte-lowbyte+1]<optimize=false>;
+      break;
+    case lookupswitch_body:
+      local u4 len=4-(offsets+1)%4;
+      if(len<4)u1 byte_pad[len];
+      i4 defaultbyte; //defaultbyte1,defaultbyte2,defaultbyte3,defaultbyte4
+      i4 npairs; //npairs1,npairs2,npairs3,npairs4
+      struct
+      {
+        i4 match;
+        i4 offset;
+      }match_offset[npairs];
+     break;
+    case indexbyte_1_2_body:
+      u2 indexbyte; //indexbyte1,indexbyte2;
+     break;
+    case branchbyte1_2_body:
+      i2 branchbyte; //indexbyte1,indexbyte2;
+     break;
+    case branchbyte1_4_body:
+      i4 branchbyte; //branchbyte1,branchbyte2,branchbyte3,branchbyte4
+     break;
+    case invokeinterface_body:
+      u2 indexbyte; //indexbyte1,indexbyte2;
+      u1 _count<name="const">;
+      u1 zero;
+     break;
+    case invokedynamic_body:
+     u2 indexbyte; //indexbyte1,indexbyte2;
+     u1 zero;
+     u1 zero;
+     break;
+    default: 
+      break;
+   }
+  }
+}opcodes_operation<comment=opcodes_operation_OnComment>;
+
+
+struct attribute_info;
+
+typedef struct{
+ u2 attribute_name_index;
+ u4 attribute_length;
+
+ local string attribute_name=get_constant_pool_Utf8(attribute_name_index);
+ 
+ if(attribute_name=="ConstantValue") 
+ {
+   u2 constantvalue_index <comment=Name_OnComment>;
+ } 
+ else if(attribute_name=="Code") 
+ {
+    u2 max_stack;
+    u2 max_locals;
+    u4 code_length<format=hex>;
+    //u1 code[code_length]<format=hex>;
+    struct
+    {
+     local u8 begin_address=FTell();
+     local u8 current_address=FTell();
+     local u8 end_address=begin_address+code_length;
+     local u4 i;
+     local u8 Len;
+     while( FTell() < end_address)
+     {  
+       opcodes_operation operation(0,current_address-begin_address);
+       Len=FTell()-current_address-1;
+       FSkip(-Len);
+       for(i=0;i<Len;i++)
+       {
+         opcodes_operation operation(1,0)<size=1,hidden=true>;
+       }
+       current_address=FTell();
+     }
+    }code;
+
+    u2 exception_table_length;
+    if(exception_table_length>0)
+    {
+     struct
+     {
+      u2 start_pc;
+      u2 end_pc;
+      u2 handler_pc;
+      u2 catch_type<comment=Name_Exception_OnComment>;
+     }exception_table[exception_table_length]; 
+    }
+    u2 attributes_count;
+    if(attributes_count>0)attribute_info attributes[attributes_count]<optimize=false>;
+ }
+ else if(attribute_name=="Exceptions") 
+ {
+    u2 number_of_exceptions;
+    u2 exception_index_table[number_of_exceptions]<comment=Name_Exception_OnComment,optimize=false>;
+ }
+ else if(attribute_name=="LineNumberTable") 
+ {
+    u2 line_number_table_length;
+    struct{   
+      u2 start_pc;
+      u2 line_number;	
+    }line_number_table[line_number_table_length] <optimize=false>;
+ }
+ else if(attribute_name=="LocalVariableTable") 
+ {
+    u2 local_variable_table_length;
+    struct LocalVariableTable_struct{  
+        u2 start_pc;
+        u2 length;
+        u2 name_index<comment=Name_OnComment>;
+        u2 descriptor_index<comment=Name_OnComment>;
+        u2 index;
+    }local_variable_table[local_variable_table_length] <comment=attribute_info_LocalVariableTable_OnComment,optimize=false>;
+ }
+ else if(attribute_name=="LocalVariableTypeTable") 
+ {
+    u2 local_variable_type_table_length;
+    struct{   
+        u2 start_pc;
+        u2 length;
+        u2 name_index;
+        u2 signature_index;
+        u2 index;
+    }local_variable_type_table[local_variable_type_table_length]<optimize=false>;
+ }
+ else if(attribute_name=="SourceFile") 
+ {
+    u2 sourcefile_index<comment=Name_OnComment>;
+ }
+ else if(attribute_name=="InnerClasses")
+ {
+    u2 number_of_classes;
+    struct InnerClasses_struct{
+        u2 inner_class_info_index<comment=Name_OnComment>;
+        u2 outer_class_info_index<comment=Name_OnComment>;
+        u2 inner_name_index<comment=Name_OnComment>;
+        u2 inner_class_access_flags<comment=Nested_Class_access_flags_OnComment>;
+    }classes[number_of_classes] <comment=attribute_info_InnerClasses_OnComment,optimize=false>;
+ }
+ else if(attribute_name=="EnclosingMethod")
+ {
+    u2 class_index<comment=Name_OnComment>;
+    u2 method_index<comment=Name_OnComment>;
+ }
+ else if(attribute_name=="Signature")
+ {
+    u2 signature_index<comment=Name_OnComment>;
+ }
+ else if(attribute_name=="SourceDebugExtension")
+ {
+    u1 debug_extension[attribute_length] <optimize=false>;
+ }
+ else if(attribute_name=="RuntimeVisibleAnnotations"||attribute_name=="RuntimeInvisibleAnnotations")
+ {
+    u2         num_annotations;
+    annotation annotations[num_annotations]<optimize=false>;
+ }
+ else if(attribute_name=="RuntimeVisibleParameterAnnotations"||attribute_name=="RuntimeInvisibleParameterAnnotations")
+ {
+    u1 num_parameters;
+    struct{   
+     u2 num_annotations;
+     annotation annotations[num_annotations]<optimize=false>;
+    }parameter_annotations[num_parameters]<optimize=false>;
+ }
+ else if(attribute_name=="AnnotationDefault")
+ {
+    element_value default_value;
+ }
+ else if(attribute_name=="BootstrapMethods")
+ {
+    u2 num_bootstrap_methods;
+    struct{   
+     u2 bootstrap_method_ref;
+     u2 num_bootstrap_arguments;
+     u2 bootstrap_arguments[num_bootstrap_arguments]<optimize=false>;
+    }bootstrap_methods[num_bootstrap_methods]<optimize=false>;
+ }
+ else if(attribute_name=="StackMapTable")
+ {
+    u2 number_of_entries;
+    stack_map_frame entries[number_of_entries]<optimize=false>;
+ }
+ else
+ { 
+   if(attribute_length>0) u1 info[attribute_length] <optimize=false>;
+ }
+}attribute_info <comment=attribute_info_OnComment>;
+
+typedef struct 
+{
+    u2             access_flags<comment=Field_access_flags_OnComment>;
+    u2             name_index;
+    u2             descriptor_index;
+    u2             attributes_count;
+    if(0<attributes_count)
+    {
+     attribute_info attributes[attributes_count] <optimize=false>;
+    }
+}field_info <comment=field_info_OnComment>;
+
+typedef struct{
+    u2             access_flags<comment=Method_access_flags_OnComment>;
+    u2             name_index;
+    u2             descriptor_index;
+    u2             attributes_count;
+    if(0<attributes_count)
+    {
+        attribute_info attributes[attributes_count] <optimize=false>;
+    }
+}method_info <comment=method_info_OnComment>;
+
+
+
+
+typedef struct{
+  if(sizeof(this)>1)
+  {
+    u1 tag;
+    switch(tag) 
+    {
+    case CONSTANT_Class:
+      u2 name_index;
+      break;
+    case CONSTANT_Fieldref:
+    case CONSTANT_Methodref:
+    case CONSTANT_InterfaceMethodref:
+      u2 class_index;
+      u2 name_and_type_index;
+      break;
+    case CONSTANT_String:
+      u2 string_index;
+      break;
+    case CONSTANT_Integer:
+    case CONSTANT_Float:
+      u4 bytes;
+      break;
+    case CONSTANT_Long:
+    case CONSTANT_Double:
+       u4 high_bytes<format=hex>;
+       u4 low_bytes<format=hex>;
+      break;
+    case CONSTANT_NameAndType:
+      u2 name_index;
+      u2 descriptor_index;
+      break;
+    case CONSTANT_Utf8:
+      u2 length;
+      if(length>0)
+      {
+       u1 bytes[length]<optimize=false>;
+      }
+      break;
+    case CONSTANT_MethodHandle:
+      u1 reference_kind;
+      u2 reference_index;
+      break;
+    case CONSTANT_MethodType:
+      u2 descriptor_index;
+      break;
+    case CONSTANT_InvokeDynamic:
+      u2 bootstrap_method_attr_index;
+      u2 name_and_type_index;
+      break;
+    default: 
+      Warning("fix cp_info");
+      break;
+   } 
+  }
+}cp_info<comment=cp_infoOnComment,size=cp_infoOnSize>;
+
+
+typedef struct
+{
+    u4           magic <format=hex>;
+    u2           minor_version;
+    u2           major_version;
+    u2           constant_pool_count;
+    cp_info      constant_pool[constant_pool_count-1]<optimize=false>;
+    u2           access_flags <comment=Class_access_flags_OnComment>;
+    u2           this_class <comment=Name_OnComment>;
+    u2           super_class <comment=Name_OnComment>;
+
+    u2   interfaces_count;
+    if(0<interfaces_count)
+    { 
+        u2 interfaces[interfaces_count]<comment=ClassFile_interfaces_OnComment,optimize=false>;
+    }
+
+    u2   fields_count;
+    if(0<fields_count)
+    { 
+        field_info   fields[fields_count]<optimize=false>;
+    }
+
+    u2  methods_count;
+    if(0<methods_count)
+    {
+        method_info  methods[methods_count]<optimize=false>;
+    }
+
+    u2           attributes_count;
+    if(0<attributes_count)
+    {
+        attribute_info attributes[attributes_count]<optimize=false>;
+    }
+
+}ClassFile<comment=ClassFileOnComment>;
+
+//main
+
+
+void generator_map_address_constant_pool()
+{
+ local u8 address=address_constant_pool;
+ local u1 tag; 
+ 
+
+ local int i;
+ for(i = 0; i <constant_pool_count; i++)
+ {
+  map_address_constant_pool[i]=address; 
+
+  tag=ReadUByte(address);
+
+  switch(tag) 
+  {
+    case CONSTANT_Class: //sizeof(tag)+sizeof(name_index)
+    case CONSTANT_String: //sizeof(tag)+sizeof(string_index)
+    case CONSTANT_MethodType: //sizeof(tag)+sizeof(descriptor_index)
+      address=address+3;
+      break;
+    case CONSTANT_Fieldref: //sizeof(tag)+sizeof(class_index)+sizeof(name_and_type_index)
+    case CONSTANT_Methodref: //sizeof(tag)+sizeof(class_index)+sizeof(name_and_type_index)
+    case CONSTANT_InterfaceMethodref: //sizeof(tag)+sizeof(class_index)+sizeof(name_and_type_index)
+    case CONSTANT_NameAndType: //sizeof(tag)+sizeof(name_index)+sizeof(descriptor_index)
+    case CONSTANT_InvokeDynamic: //sizeof(tag)+sizeof(bootstrap_method_attr_index)+sizeof(name_and_type_index)
+    case CONSTANT_Integer: //sizeof(tag)+sizeof(bytes)
+    case CONSTANT_Float: //sizeof(tag)+sizeof(bytes)
+      address=address+5;
+      break;
+    case CONSTANT_Long: //sizeof(tag)+sizeof(high_bytes)+sizeof(low_bytes)
+    case CONSTANT_Double: //sizeof(tag)+sizeof(high_bytes)+sizeof(low_bytes)
+      i++;
+      map_address_constant_pool[i]=0;
+      address=address+9;
+      break;
+    case CONSTANT_Utf8: //sizeof(tag)+sizeof(length)+length
+      address=address+3+ReadUShort(address+1);
+      break;
+    case CONSTANT_MethodHandle://sizeof(tag)+sizeof(reference_kind)+sizeof(reference_index)
+      address=address+4;
+      break;
+    default: 
+      Warning("fix generator_map_address_constant_pool");
+      break;
+  }
+ }
+}
+
+u8 find_constant_pool2(u2 n)
+{
+    return map_address_constant_pool[n-1];
+}
+
+string get_constant_pool_Utf8(u2 n)
+{
+ if(n<=0) return "NO NAME";
+
+ local u8 address=find_constant_pool2(n);
+ local u8 address2=0;
+ local u8 address3=0;
+ local string str="";
+ switch(ReadUByte(address)) 
+ {
+    case CONSTANT_Class:
+    case CONSTANT_String:
+    case CONSTANT_InvokeDynamic:
+      address=find_constant_pool2(ReadUShort(address+1)); //address+sizeof(tag)
+      break;
+    case CONSTANT_NameAndType:
+       address2=address;
+       address=find_constant_pool2(ReadUShort(address+1)); //address+sizeof(tag)
+       address2=find_constant_pool2(ReadUShort(address2+3)); //address+sizeof(tag)+sizeof(name_index)
+      break;
+    case CONSTANT_Fieldref:
+    case CONSTANT_Methodref:
+    case CONSTANT_InterfaceMethodref:
+       address2=address;
+       address=find_constant_pool2(ReadUShort(address+1)); //address+sizeof(tag)=class_index
+       address=find_constant_pool2(ReadUShort(address+1));
+       address2=find_constant_pool2(ReadUShort(address2+3)); //address+sizeof(tag)+sizeof(class_index)=name_and_type_index
+       address3=address2;
+       address2=find_constant_pool2(ReadUShort(address3+1)); //address+sizeof(tag)=name_index;
+       address3=find_constant_pool2(ReadUShort(address3+3)); //address+sizeof(tag)+sizeof(name_index)=descriptor_index
+      break;
+    case CONSTANT_Integer:
+       SPrintf(str, "%d",ReadUInt(address+1)); 
+       break;
+    case CONSTANT_Long:
+      SPrintf(str, "%Ld",ReadInt64(address+1)); 
+      break;
+    case CONSTANT_Float:
+       SPrintf(str, "%f",ReadFloat(address+1)); 
+     break;
+    case CONSTANT_Double:
+       SPrintf(str, "%Lf",ReadDouble(address+1)); 
+     break;
+    case CONSTANT_Utf8:
+      break;
+    default: 
+      Warning("fix get_constant_pool_Utf8");
+      return "NULL";
+    break;
+  }
+  
+  if(0<Strlen(str))return str;
+  if(address2==0) return ReadUShort(address+1)==0?" ":ReadString(address+3,ReadUShort(address+1));
+  if(address3==0)return ReadString(address+3,ReadUShort(address+1))+ReadString(address2+3,ReadUShort(address2+1));
+
+  return ReadString(address+3,ReadUShort(address+1))+"."+ReadString(address2+3,ReadUShort(address2+1))+ReadString(address3+3,ReadUShort(address3+1));
+
+}
+
+string Access_flags(u2 access_flags,enum_type type)
+{
+  string access_flags_text;
+
+  if((access_flags&ACC_PUBLIC)==ACC_PUBLIC)
+  {
+    access_flags_text=access_flags_text+"public";
+  }
+
+  if(type==Field||type==Method||type==Nested_Class)
+  {
+
+   if((access_flags&ACC_PRIVATE)==ACC_PRIVATE)
+   {
+    access_flags_text=access_flags_text+"private";
+   }
+
+   if((access_flags&ACC_PROTECTED)==ACC_PROTECTED)
+   {
+     access_flags_text=access_flags_text+"protected";
+   }
+
+   if((access_flags&ACC_STATIC)==ACC_STATIC)
+   {
+     access_flags_text=access_flags_text+" static";
+   }
+
+  }
+ 
+  if((access_flags&ACC_FINAL)==ACC_FINAL)
+  {
+    access_flags_text=access_flags_text+" final";
+  }
+
+  if(type==Class)
+  {
+   if((access_flags&ACC_SUPER_ACC_SYNCHRONIZED)==ACC_SUPER_ACC_SYNCHRONIZED)
+   {
+     access_flags_text=access_flags_text+" superclass";
+   }
+  }
+
+  if(type==Method)
+  {
+
+   if((access_flags&ACC_SUPER_ACC_SYNCHRONIZED)==ACC_SUPER_ACC_SYNCHRONIZED)
+   {
+     access_flags_text=access_flags_text+" synchronized";
+   }
+
+   if((access_flags&ACC_BRIDGE_ACC_VOLATILE)==ACC_BRIDGE_ACC_VOLATILE)
+   {
+    access_flags_text=access_flags_text+" bridge";
+   }
+
+   if((access_flags&ACC_VARARGS_ACC_TRANSIENT)==ACC_VARARGS_ACC_TRANSIENT)
+   {
+    access_flags_text=access_flags_text+" varargs";
+   }
+
+   if((access_flags&ACC_NATIVE)==ACC_NATIVE)
+   {
+     access_flags_text=access_flags_text+" native";
+   }
+
+   if((access_flags&ACC_STRICT)==ACC_STRICT)
+   {
+     access_flags_text=access_flags_text+" strictfp";
+   }
+
+  }
+
+  if(type==Field)
+  {
+   if((access_flags&ACC_BRIDGE_ACC_VOLATILE)==ACC_BRIDGE_ACC_VOLATILE)
+   {
+    access_flags_text=access_flags_text+" volatile";
+   }
+
+   if((access_flags&ACC_VARARGS_ACC_TRANSIENT)==ACC_VARARGS_ACC_TRANSIENT)
+   {
+    access_flags_text=access_flags_text+" transient";
+   }
+
+  }
+
+  if(type==Class||type==Nested_Class)
+  {
+ 
+   if((access_flags&ACC_INTERFACE)==ACC_INTERFACE)
+   {
+    access_flags_text=access_flags_text+" interface";
+   }
+
+   if((access_flags&ACC_ANNOTATION)==ACC_ANNOTATION)
+   {
+    access_flags_text=access_flags_text+" annotation";
+   }
+
+  }
+    
+  if(type==Class||type==Method||type==Nested_Class)
+  {
+    if((access_flags&ACC_ABSTRACT)==ACC_ABSTRACT)
+    {
+    access_flags_text=access_flags_text+" abstract";
+    }
+  }
+
+
+  if((access_flags&ACC_SYNTHETIC)==ACC_SYNTHETIC)
+  {
+    access_flags_text=access_flags_text+" synthetic";
+  }
+
+  if(type==Class||type==Field||type==Nested_Class)
+  {
+   if((access_flags&ACC_ENUM)==ACC_ENUM)
+   {
+    access_flags_text=access_flags_text+" enum";
+   }
+  }
+  return access_flags_text;
+}
+
+//Event
+
+string ClassFileOnComment(ClassFile &obj)
+{
+  switch(obj.major_version)
+  {
+    case 45:
+      return "JDK 1.0 or JDK 1.1"; 
+      break;
+    case 46:
+     return "JDK 1.2"; 
+     break;
+    case 47:
+     return "JDK 1.3"; 
+     break;
+    case 48:
+     return "JDK 1.4";
+     break;
+    case 49:
+     return "JDK 1.5";
+     break;
+    case 50:
+     return "JDK 1.6";
+     break;
+    case 51:
+     return "JDK 1.7";
+     break;
+    default:
+     return "JDK ?.?";
+     break;
+  }
+}
+
+local u1 flag_CONSTANT_Long_CONSTANT_Double=0;
+
+u4 cp_infoOnSize(cp_info &obj)
+{
+  switch(ReadUByte(FTell())) 
+  {
+    case CONSTANT_Class: //sizeof(tag)+sizeof(name_index)
+    case CONSTANT_String: //sizeof(tag)+sizeof(string_index)
+    case CONSTANT_MethodType: //sizeof(tag)+sizeof(descriptor_index)
+      return 3;
+      break;
+    case CONSTANT_Fieldref: //sizeof(tag)+sizeof(class_index)+sizeof(name_and_type_index)
+    case CONSTANT_Methodref: //sizeof(tag)+sizeof(class_index)+sizeof(name_and_type_index)
+    case CONSTANT_InterfaceMethodref: //sizeof(tag)+sizeof(class_index)+sizeof(name_and_type_index)
+    case CONSTANT_NameAndType: //sizeof(tag)+sizeof(name_index)+sizeof(descriptor_index)
+    case CONSTANT_InvokeDynamic: //sizeof(tag)+sizeof(bootstrap_method_attr_index)+sizeof(name_and_type_index)
+    case CONSTANT_Integer: //sizeof(tag)+sizeof(bytes)
+    case CONSTANT_Float: //sizeof(tag)+sizeof(bytes)
+      return 5;
+    break;
+    case CONSTANT_Long: //sizeof(tag)+sizeof(high_bytes)+sizeof(low_bytes)
+    case CONSTANT_Double: //sizeof(tag)+sizeof(high_bytes)+sizeof(low_bytes)
+    { 
+      if(flag_CONSTANT_Long_CONSTANT_Double==0)
+      {
+        FSkip(-9);
+        flag_CONSTANT_Long_CONSTANT_Double=1;
+        return 9;
+   
+      }
+      else
+      { 
+        flag_CONSTANT_Long_CONSTANT_Double=0;
+        FSkip(8); 
+        return 1;
+      }
+      break;
+    }
+    case CONSTANT_Utf8: //sizeof(tag)+sizeof(length)+length
+      return 3+ReadUShort(FTell()+1);
+      break;
+    case CONSTANT_MethodHandle: //sizeof(tag)+sizeof(reference_kind)+sizeof(reference_index)
+      return 4;
+      break;
+    default:
+      Warning("fix cp_infoOnSize");
+      return 0;
+      break;
+  }
+} 
+
+string cp_infoOnComment(cp_info &obj)
+{ 
+  //obj.tag
+  switch(ReadUByte(startof(obj))) 
+  {
+    case CONSTANT_Class:
+      return "CONSTANT_Class_info";
+      break;
+    case CONSTANT_Fieldref:
+      return "CONSTANT_Fieldref";
+      break;
+    case CONSTANT_Methodref:
+      return "CONSTANT_Methodref";
+      break;
+    case CONSTANT_InterfaceMethodref:
+      return "CONSTANT_InterfaceMethodref";
+      break;
+    case CONSTANT_String:
+      return "CONSTANT_String";
+      break;
+    case CONSTANT_Integer:
+      return "CONSTANT_Integer";
+      break;
+    case CONSTANT_Float:
+      return "CONSTANT_Float";
+      break;
+    case CONSTANT_Long:
+      if(sizeof(obj)==1)return "CONSTANT_Long continued";
+      return "CONSTANT_Long";
+      break;
+    case CONSTANT_Double:
+      if(sizeof(obj)==1)return "CONSTANT_Double continued";
+      return "CONSTANT_Double";
+      break;
+    case CONSTANT_NameAndType:
+      return "CONSTANT_NameAndType";
+      break;
+    case CONSTANT_Utf8:
+      return "CONSTANT_Utf8";
+      break;
+    case CONSTANT_MethodHandle:
+      return "CONSTANT_MethodHandle";
+      break;
+    case CONSTANT_MethodType:
+      return "CONSTANT_MethodType";
+      break;
+    case CONSTANT_InvokeDynamic:
+      return "CONSTANT_InvokeDynamic";
+      break;
+    default:
+      Warning("fix cp_infoOnCommen");
+      return "fix cp_infoOnCommen";
+      break;
+  }
+}
+
+string ClassFile_interfaces_OnComment(u2 interfaces)
+{
+ return get_constant_pool_Utf8(interfaces);
+}
+
+string Class_access_flags_OnComment(u2 access_flags)
+{ 
+  return Access_flags(access_flags,Class);
+}
+
+string Field_access_flags_OnComment(u2 access_flags)
+{
+  return Access_flags(access_flags,Field);
+}
+
+string Method_access_flags_OnComment(u2 access_flags)
+{ 
+  return Access_flags(access_flags,Method);
+}
+
+string Nested_Class_access_flags_OnComment(u2 access_flags)
+{ 
+  return Access_flags(access_flags,Nested_Class);
+}
+
+string method_info_OnComment(method_info &obj)
+{
+ return get_constant_pool_Utf8(obj.name_index)+get_constant_pool_Utf8(obj.descriptor_index);
+}
+
+string field_info_OnComment(field_info &obj)
+{
+ return get_constant_pool_Utf8(obj.descriptor_index)+" "+get_constant_pool_Utf8(obj.name_index);
+}
+
+string attribute_info_OnComment(attribute_info &obj)
+{
+ return get_constant_pool_Utf8(obj.attribute_name_index);
+}
+
+string attribute_info_InnerClasses_OnComment(InnerClasses_struct &obj)
+{
+  return get_constant_pool_Utf8(obj.inner_name_index);
+}
+
+string attribute_info_LocalVariableTable_OnComment(LocalVariableTable_struct &obj)
+{
+ return get_constant_pool_Utf8(obj.name_index);
+}
+
+
+
+string stack_map_frame_OnComment(stack_map_frame &obj)
+{
+   if(obj.frame_type>=0&&obj.frame_type<=63)
+   {
+     return "same_frame";  
+   }
+   else if(obj.frame_type>=64&&obj.frame_type<=127)
+   { 
+    return "same_locals_1_stack_item_frame";
+   }
+   else if(obj.frame_type==247)
+   { 
+    return "same_locals_1_stack_item_frame_extended";
+   }
+   else if(obj.frame_type>=248&&obj.frame_type<=251)
+   {
+    return "chop_frame or same_frame_extended";
+   }
+   else if(obj.frame_type>=252&&obj.frame_type<=254)
+   {
+     return "append_frame";
+   }
+   else if(obj.frame_type==255)
+   {
+    return "full_frame";
+   }
+}
+
+
+string annotation_OnComment(annotation &obj)
+{
+ return get_constant_pool_Utf8(obj.type_index);
+}
+
+string Name_OnComment(u2 n)
+{
+ return get_constant_pool_Utf8(n);
+}
+
+string Name_Exception_OnComment(u2 n)
+{
+ if(n==0)return "any";
+ return get_constant_pool_Utf8(n);
+}
+
+string element_value_OnComment(element_value &obj)
+{ 
+ switch(obj.tag)
+ {   
+   case 's':
+     return "String";
+   break; 
+   case 'e': 
+     return "enum";
+   break; 
+   case 'c': 	
+    return "class";
+   break; 
+   case '@': 	
+    return "annotation type";
+   break; 
+   case '[':
+    return "array";
+   break; 
+   default:
+    return ""; 
+   break;
+ }
+}
+
+
+string opcodes_operation_OnComment(opcodes_operation &obj)
+{
+ if(!exists(obj.operation))return "";
+
+ string str;
+ string str2;
+ enum_opcodes obj_operation=obj.operation;
+
+ switch(array_opcodes_body_type[obj.operation])
+ {
+    case index_body:
+     SPrintf(str," %d",obj.index);
+     break;
+    case index_v2_body:
+     str=" "+get_constant_pool_Utf8(obj.index);
+     break;
+    case index_const_body:
+     SPrintf(str," %d",obj.index);
+     SPrintf(str2," %d",obj._const);
+     str=str+" by"+str2;
+     break;
+    case sipush_body:
+     SPrintf(str," %d",obj._byte);
+     break;
+    case bipush_body:
+     SPrintf(str," %d",obj._byte);
+     break;
+    case newarray_body:
+      switch(obj.atype) 
+      {
+        case T_BOOLEAN:
+         str=" boolean";
+        break;
+        case T_CHAR:
+         str=" char";
+        break;
+        case T_FLOAT:
+         str=" float";
+        break;
+        case T_DOUBLE:
+         str=" double";
+        break;
+        case T_BYTE:
+         str=" byte";
+        break;
+        case T_SHORT:
+         str=" short";
+        break;
+        case T_INT:
+         str=" int";
+        break;
+        case T_LONG:
+         str=" long";
+        break;
+        default:
+            Warning("fix opcodes_operation_OnComment");
+        break;
+       }
+     break;
+    case multianewarray_body:
+     SPrintf(str,"%d",obj.dimensions);
+     str=" "+get_constant_pool_Utf8(obj.indexbyte)+" dimensions "+str;
+     break;
+    case wide_body:
+      enum_opcodes obj_operation2=obj.operation2;
+      str=" "+EnumToString(obj_operation2)+get_constant_pool_Utf8(obj.indexbyte);
+      if(obj_operation2==iinc)
+      {
+        SPrintf(str2,"%d",obj.constbyte);
+        str=str+" by "+str2;
+      }
+     break;
+    case tableswitch_body:
+     SPrintf(str,"%d",obj.lowbyte);
+     SPrintf(str2,"%d",obj.highbyte);
+     str=" "+str+" to "+str2;
+     break;
+    case lookupswitch_body:
+     SPrintf(str,"%d",obj.npairs);
+     str=" "+str;
+     break;
+    case invokedynamic_body:
+    case indexbyte_1_2_body:
+     str=" "+get_constant_pool_Utf8(obj.indexbyte);
+     break;
+    case branchbyte1_2_body:
+    case branchbyte1_4_body:
+     SPrintf(str," %d",obj.branchbyte);
+     break;
+    case invokeinterface_body:
+     SPrintf(str," %d",obj._count);
+     str=" "+get_constant_pool_Utf8(obj.indexbyte)+" count "+str;
+     break;
+    default: 
+      break;
+ }
+
+ return EnumToString(obj_operation)+str;
+}
+
+generator_map_address_constant_pool();
+
+ClassFile classFile;

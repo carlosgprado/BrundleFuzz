@@ -1,0 +1,68 @@
+//--------------------------------------
+//--- 010 Editor v5.0 Binary Template
+//
+// File: GPTTemplate
+// Author: lurker0ster@gmail.com
+// Revision: V1.0
+// Purpose: Guid Partition Table
+//--------------------------------------
+typedef struct {
+  BYTE BootIndicator;
+  BYTE StartHead;
+  WORD StartSector:6;
+  WORD StartCylinder:10;
+  BYTE PartitionType;
+  BYTE EndHead;
+  WORD EndSector:6;
+  WORD EndCylider:10;
+  DWORD SectorsPrecedingPartion;
+  DWORD SectorsInPartition;
+}MBRPARTITIONTABLE;
+
+
+typedef struct{
+  char SIGNATURE[8];
+  DWORD  Revision;
+  DWORD  Headersize;
+  DWORD  CRC32OfHeader;
+  DWORD  Reserved;
+  uint64 CurrentLBA;
+  uint64 BackupLBA; //location of the other head copy
+  uint64 FirstUsableLBA; //primary partition table last LBA+1
+  uint64 LastUsableLBA; //secondary parition table first LBA-1
+  BYTE DiskGUID[16];
+  uint64 PartitionEntries;
+  DWORD  NumOfPartitions;
+  DWORD  SizeOfPartitionEntry;
+  DWORD  CRC32ofPartitionArray;
+  BYTE reserved[420];
+}GPT;
+
+typedef struct {
+  BYTE PartitionTypeGUID[16];
+  BYTE PartitionGUID[16];
+  uint64 PartitionStartLBA;
+  uint64 PartitionEndLBA;
+  uint64 PartitionProperty;
+  wchar_t PartitionName[36]; //Unicode
+}GPTPAPTITIONTABLE <size=128>;
+
+LittleEndian();
+struct {
+  BYTE bootcode[446];
+  MBRPARTITIONTABLE partitionTable[4];
+  WORD signature;
+}MBR <size=512>;
+
+
+
+
+if ((MBR.partitionTable[0].PartitionType & 0xFF) == 0xEE) {
+  Printf("Protected MBR. GPT reserved");
+  GPT gptheader;
+  GPTPAPTITIONTABLE table[128];
+  FSeek(FileSize()-sizeof(GPT)-sizeof(GPTPAPTITIONTABLE)*128);
+  GPTPAPTITIONTABLE BackupTable[128];
+  FSeek(FileSize()-sizeof(GPT));
+  GPT Backupgptheader;
+}

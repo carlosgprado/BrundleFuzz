@@ -1,0 +1,117 @@
+//--------------------------------------
+//--- 010 Editor v3.2.2 Binary Template
+//
+// File: cabtemplate.bt
+// Author: Alex McDonnell
+// Revision: 0.1
+// Purpose: Parse Microsoft CAB files
+// Changes:  
+// 0.2 (SweetScape): 
+//   - Allow for multiple flags to be set at the same time
+//--------------------------------------
+
+// Define structures used in CAB files
+
+typedef struct {
+//header
+    char  	signature[4]; 		/* 'MSCF' */
+    uint  	reserved1;     		/* 0x00000000 */
+    uint  	cbCabinet;    		/* size of this cabinet file in bytes */
+    uint  	reserved2;     		/* 0x00000000 */
+    uint  	coffFiles;			/* offset of the first CFFILE entry */
+    uint  	reserved3;     		/* 0x00000000 */
+    ubyte  	versionMinor;   	/* cabinet file format version, minor 0x03 */
+    ubyte  	versionMajor;   	/* cabinet file format version, major 0x01 */
+    ushort  cFolders;  			/* number of CFFOLDER entries in this cabinet */
+    ushort  cFiles;     		/* number of CFFILE entries in this cabinet */
+    ushort  flags;        		/* cabinet file option indicators 0x0001 0x0002 0x0004 only*/
+    ushort  setID;        		/* must be the same for all cabinets in a set */
+    ushort  iCabinet;     	    /* number of this cabinet file in a set */
+
+    if(flags & 4){    
+
+        ushort cbCFHeader;   	/* (optional) size of per-cabinet reserved area */
+        ubyte  cbCFFolder;   	/* (optional) size of per-folder reserved area */
+        ubyte  cbCFData;        /* (optional) size of per-datablock reserved area */
+        
+        if(cbCFHeader > 0)
+            char abReserve[cbCFHeader];  /* (optional) per-cabinet reserved area */
+
+    }
+    if(flags & 1){
+
+        char  	szCabinetPrev[];/* (optional) name of previous cabinet file */
+        char  	szDiskPrev[];   /* (optional) name of previous disk */
+
+    }
+    if(flags & 2){
+
+        char  	szCabinetNext[];  	/* (optional) name of next cabinet file */
+        char  	szDiskNext[];     	/* (optional) name of next disk */
+
+    }
+
+} CFHEADER;
+
+LittleEndian();
+CFHEADER header;
+local uint counter = 0;
+
+typedef struct {
+//folder
+    uint    coffCabStart;  /* offset of the first CFDATA block in this folder */
+    ushort  cCFData;       /* number of CFDATA blocks in this folder */
+    ushort  typeCompress;  /* compression type indicator */
+
+    if( exists(header.cbCFFolder))
+        char abReserve[header.cbCFFolder];   /* (optional) per-folder reserved area */
+
+} CFFOLDER;
+
+typedef struct {
+//file
+  uint      cbFile;           /* uncompressed size of this file in bytes */
+  uint      uoffFolderStart;  /* uncompressed offset of this file in the folder */
+  ushort    iFolder;          /* index into the CFFOLDER area */
+  DOSDATE    date;             /* date stamp for this file */
+  DOSTIME    time;             /* time stamp for this file */
+  ushort    attribs;          /* attribute flags for this file */
+  char      szName[];         /* name of this file */
+} CFFILE;    
+
+typedef struct {
+//data
+  uint      csum;           /* checksum of this CFDATA entry */
+  ushort    cbData;         /* number of compressed bytes in this block */
+  ushort    cbUncomp;       /* number of uncompressed bytes in this block */
+
+  if( exists(header.cbCFData))
+    char  abReserve[header.cbCFData];  /* (optional) per-datablock reserved area */
+
+  char      ab[cbData];     /* compressed data bytes */
+} CFDATA;
+
+while(header.cFolders > counter){
+
+    counter++;
+    CFFOLDER folder;
+
+}
+
+counter = 0;
+
+while(header.cFiles > counter){
+
+    counter++;
+    CFFILE file;
+
+}
+
+counter = 0;
+
+while(folder.cCFData > counter){
+
+    counter++;
+    CFDATA data;
+
+}

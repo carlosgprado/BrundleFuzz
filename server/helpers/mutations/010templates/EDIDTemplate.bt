@@ -1,0 +1,730 @@
+//--------------------------------------
+//--- 010 Editor v3.2.2 Binary Template
+//
+// File: EDIDTemplate.bt
+// Author: Rafael Vuijk
+// Revision: 2012-03-02
+// Purpose: EDID structure parser
+//--------------------------------------
+//
+// NOTE: This template uses variable-size/unoptimized structure arrays.
+// Information source: https://en.wikipedia.org/wiki/Extended_display_identification_data
+// Modeline calculator: http://www.epanorama.net/faq/vga2rgb/calc.html
+//
+//--------------------------------------
+
+typedef uint16 EISAId <read=EISAIdToString, write=StringToEISAId>;
+
+string EISAIdToString(EISAId x)
+{
+    uint16 sw = SwapBytes(x);
+    string s;
+    SPrintf(s, "%c%c%c", '@' + (sw>>10 & 0x1F), '@' + (sw>>5 & 0x1F), '@' + (sw>>0 & 0x1F));
+    return s;
+}
+
+void StringToEISAId(EISAId &x, string s)
+{
+    char c[3];
+    SScan(s, "%c%c%c", c[0], c[1], c2[2]);
+    x = (c[0] - '@')<<10 | (c[1] - '@')<<5 | (c[2] - '@')<<0;
+    x = SwapBytes(x);
+}
+
+//--------------------------------------
+
+typedef struct
+{
+    ubyte x_resolution;
+    ubyte vFrequency : 6;
+    ubyte pixelRatio : 2;
+} Timing <read=TimingToString>;
+
+string TimingToString(Timing &t)
+{
+    if (t.x_resolution == 1 && t.vFrequency == 1 && t.pixelRatio == 0) return "-";
+    int x = (t.x_resolution + 31) * 8;
+    int y;
+    switch (t.pixelRatio)
+    {
+        case 0: y = x*10/16; break;
+        case 1: y = x*3/4; break;
+        case 2: y = x*4/5; break;
+        case 3: y = x*9/16; break;
+    }
+    string s;
+    SPrintf(s, "%ux%u, %uHz", x, y, t.vFrequency + 60);
+    return s;
+}
+
+//--------------------------------------
+
+enum <ubyte> DescriptorType
+{
+    TIMINGS             = 0xFA, // Additional standard timing identifiers. 6- 2-byte descriptors, padded with 0A.
+    WHITE_POINT         = 0xFB, // Additional white point data. 2- 5-byte descriptors, padded with 0A 20 20.    
+    MONITOR_NAME        = 0xFC, // Monitor name (text)
+    RANGE_LIMITS        = 0xFD, // Monitor range limits. 6- or 13-byte binary descriptor.
+    UNSPECIFIED_TEXT    = 0xFE, // Unspecified text (text)
+    SERIAL_NUMBER       = 0xFF, // Monitor serial number (text)
+};
+
+//--------------------------------------
+
+enum <ubyte> FormatCode
+{
+    RESERVED = 0,
+    LPCM = 1,
+    AC_3 = 2,
+    MPEG1 = 3,
+    MP3 = 4,
+    MPEG2 = 5,
+    AAC = 6,
+    DTS = 7,
+    ATRAC = 8,
+    SACD = 9,
+    DD_PLUS = 10,
+    DTS_HD = 11,
+    MLP_TRUEHD = 12,
+    DST = 13,
+    WMA_PRO = 14,
+    RESERVED2 = 15,
+};
+
+//--------------------------------------
+
+enum <ubyte> BlockType
+{
+    AUDIO = 1,
+    VIDEO = 2,
+    VENDOR_SPECIFIC = 3,
+    SPEAKER = 4,
+};
+
+//--------------------------------------
+
+enum <ubyte> SVDIndex
+{
+    _DMT0659    = 1,        //  4:3                640x480p @ 59.94/60Hz
+    _480p       = 2,        //  4:3                720x480p @ 59.94/60Hz
+    _480pH      = 3,        // 16:9                720x480p @ 59.94/60Hz
+    _720p       = 4,        // 16:9               1280x720p @ 59.94/60Hz
+    _1080i      = 5,        // 16:9              1920x1080i @ 59.94/60Hz
+    _480i       = 6,        //  4:3          720(1440)x480i @ 59.94/60Hz
+    _480iH      = 7,        // 16:9          720(1440)x480i @ 59.94/60Hz
+    _240p       = 8,        //  4:3          720(1440)x240p @ 59.94/60Hz
+    _240pH      = 9,        // 16:9          720(1440)x240p @ 59.94/60Hz
+    _480i4x     = 10,       //  4:3             (2880)x480i @ 59.94/60Hz
+    _480i4xH    = 11,       // 16:9             (2880)x480i @ 59.94/60Hz
+    _240p4x     = 12,       //  4:3             (2880)x240p @ 59.94/60Hz
+    _240p4xH    = 13,       // 16:9             (2880)x240p @ 59.94/60Hz
+    _480p2x     = 14,       //  4:3               1440x480p @ 59.94/60Hz
+    _480p2xH    = 15,       // 16:9               1440x480p @ 59.94/60Hz
+    _1080p      = 16,       // 16:9              1920x1080p @ 59.94/60Hz
+    _576p       = 17,       //  4:3                720x576p @ 50Hz
+    _576pH      = 18,       // 16:9                720x576p @ 50Hz
+    _720p50     = 19,       // 16:9               1280x720p @ 50Hz
+    _1080i25    = 20,       // 16:9              1920x1080i @ 50Hz*
+    _576i       = 21,       //  4:3          720(1440)x576i @ 50Hz
+    _576iH      = 22,       // 16:9          720(1440)x576i @ 50Hz
+    _288p       = 23,       //  4:3          720(1440)x288p @ 50Hz
+    _288pH      = 24,       // 16:9          720(1440)x288p @ 50Hz
+    _576i4x     = 25,       //  4:3             (2880)x576i @ 50Hz
+    _576i4xH    = 26,       // 16:9             (2880)x576i @ 50Hz
+    _288p4x     = 27,       //  4:3             (2880)x288p @ 50Hz
+    _288p4xH    = 28,       // 16:9             (2880)x288p @ 50Hz
+    _576p2x     = 29,       //  4:3               1440x576p @ 50Hz
+    _576p2xH    = 30,       // 16:9               1440x576p @ 50Hz
+    _1080p50    = 31,       // 16:9              1920x1080p @ 50Hz
+    _1080p24    = 32,       // 16:9              1920x1080p @ 23.98/24Hz
+    _1080p25    = 33,       // 16:9              1920x1080p @ 25Hz
+    _1080p30    = 34,       // 16:9              1920x1080p @ 29.97/30Hz
+    _480p4x     = 35,       //  4:3             (2880)x480p @ 59.94/60Hz
+    _480p4xH    = 36,       // 16:9             (2880)x480p @ 59.94/60Hz
+    _576p4x     = 37,       //  4:3             (2880)x576p @ 50Hz
+    _576p4xH    = 38,       // 16:9             (2880)x576p @ 50Hz
+    _1080i25b   = 39,       // 16:9  1920x1080i(1250 Total) @ 50Hz*
+    _1080i50    = 40,       // 16:9              1920x1080i @ 100Hz
+    _720p100    = 41,       // 16:9               1280x720p @ 100Hz
+    _576p100    = 42,       //  4:3                720x576p @ 100Hz
+    _576p100H   = 43,       // 16:9                720x576p @ 100Hz
+    _576i50     = 44,       //  4:3          720(1440)x576i @ 100Hz
+    _576i50H    = 45,       // 16:9          720(1440)x576i @ 100Hz
+    _1080i60    = 46,       // 16:9              1920x1080i @ 119.88/120Hz
+    _720p120    = 47,       // 16:9               1280x720p @ 119.88/120Hz
+    _480p119    = 48,       //  4:3                720x480p @ 119.88/120Hz
+    _480p119H   = 49,       // 16:9                720x480p @ 119.88/120Hz
+    _480i59     = 50,       //  4:3          720(1440)x480i @ 119.88/120Hz
+    _480i59H    = 51,       // 16:9          720(1440)x480i @ 119.88/120Hz
+    _576p200    = 52,       //  4:3                720x576p @ 200Hz
+    _576p200H   = 53,       // 16:9                720x576p @ 200Hz
+    _576i100    = 54,       //  4:3          720(1440)x576i @ 200Hz
+    _576i100H   = 55,       // 16:9          720(1440)x576i @ 200Hz
+    _480p239    = 56,       //  4:3                720x480p @ 239.76/240Hz
+    _480p239H   = 57,       // 16:9                720x480p @ 239.76/240Hz
+    _480i119    = 58,       //  4:3          720(1440)x480i @ 239.76/240Hz
+    _480i119H   = 59,       // 16:9          720(1440)x480i @ 239.76/240Hz
+    _720p24     = 60,       // 16:9               1280x720p @ 23.98/24Hz
+    _720p25     = 61,       // 16:9               1280x720p @ 25Hz
+    _720p30     = 62,       // 16:9               1280x720p @ 29.97/30Hz
+    _1080p120   = 63,       // 16:9              1920x1080p @ 119.88/120Hz
+};
+
+typedef struct
+{
+    SVDIndex index : 7 <comment="index value to a table of standard resolutions/timings from CEA/EIA-861E">;
+    ubyte native : 1 <comment="1 to designate that this should be considered a \"native\" resolution, 0 for non-native">;
+} SVD <read=SVDToString, comment="Short Video Descriptor">;
+
+string SVDToString(SVD &svd)
+{
+    string s;
+    SPrintf(s, "%s%s (%u)", (svd.native ? "*" : ""), EnumToString(svd.index), svd.index);
+    return s;
+}
+
+//--------------------------------------
+
+string SPAToString(uint16 spa)
+{
+    string s;
+    SPrintf(s, "%u.%u.%u.%u", spa>>4&15, spa>>0&15, spa>>12&15, spa>>8&15);
+    return s;
+}
+
+//--------------------------------------
+
+string TDMSFreqToString(ubyte f)
+{
+    string s;
+    SPrintf(s, "%u MHz", (uint)f * 5);
+    return s;
+}
+
+//--------------------------------------
+
+string PixelClockToString(uint16 f)
+{
+    string s;
+    SPrintf(s, "%.2lf MHz", (double)f / 100);
+    return s;
+}
+
+void StringToPixelClock(uint16 &f, string s)
+{
+    f = Atof(s) * 100;
+}
+
+//--------------------------------------
+
+typedef ubyte PixelRate <read=PixelRateToString, write=StringToPixelRate>;
+
+string PixelRateToString(PixelRate f)
+{
+    string s;
+    SPrintf(s, "%u MHz", (uint)f * 10);
+    return s;
+}
+
+void StringToPixelRate(PixelRate &f, string s)
+{
+    f = Atof(s) / 10;
+}
+
+//--------------------------------------
+
+typedef ubyte BitRate <read=BitRateToString, write=StringToBitRate, comment="maximum supported bitrate divided by 8 kbit/s">;
+
+string BitRateToString(BitRate b)
+{
+    string s;
+    SPrintf(s, "%u kHz", (uint)b * 8);
+    return s;
+}
+
+void StringToBitRate(BitRate &b, string s)
+{
+    b = Atof(s) / 8;
+}
+
+//--------------------------------------
+
+typedef ubyte Latency <read=LatencyToString, write=StringToLatency, comment="Latency (value=1+ms/2 with a max of 251 meaning 500ms)">;
+
+string LatencyToString(Latency l)
+{
+    if (l == 0) return "-";
+    string s;
+    SPrintf(s, "%u ms", ((uint)l - 1) * 2);
+    return s;
+}
+
+void StringToLatency(Latency &l, string s)
+{
+    if (s == "-") l = 0; else l = (uint)(Atof(s) / 2) + 1;
+}
+
+//--------------------------------------
+
+typedef struct
+{
+    ubyte size : 5 <comment="Total number of bytes in this block following this byte">;
+    BlockType typeTag : 3 <comment="Block Type Tag (1 is audio, 2 is video, 3 is vendor specific, 4 is speaker allocation, all other values Reserved)">;
+
+//                        local int64 dataStart <hidden=true> = FTell();
+    switch (typeTag)
+    {
+        case AUDIO:
+        {
+            ubyte channelCount : 3 <comment="number of channels minus 1">;
+            FormatCode formatCode : 4 <comment="Audio format code">;
+            ubyte reserved1 : 1;
+            struct SampleRates
+            {
+                ubyte _32kHz : 1;
+                ubyte _44kHz : 1;
+                ubyte _48kHz : 1;
+                ubyte _88kHz : 1;
+                ubyte _96kHz : 1;
+                ubyte _176kHz : 1;
+                ubyte _192kHz : 1;
+                ubyte reserved : 1;
+            } sampleRates <comment="sampling frequencies supported">;
+            if (formatCode == 1)    // LPCM
+            {
+                ubyte _16bits : 1;
+                ubyte _20bits : 1;
+                ubyte _24bits : 1;
+                ubyte reserved : 5;
+            }
+            else
+            {
+                BitRate bitrate;
+            }
+            break;
+        }
+
+        case VIDEO:
+        {
+            SVD svds[size] <bgcolor=cLtGreen, comment="Short Video Descriptors">;
+            break;
+        }
+
+        case VENDOR_SPECIFIC:
+        {
+            ubyte oui[3] <format=hex, comment="IEEE Registration Identifier">;
+            uint16 spa <read=SPAToString, comment="Source Physical Address">;
+            if (size >= 3)
+            {
+                ubyte DVI_Dual : 1  <comment="sink supports DVI Dual Link Operation">;
+                ubyte reserved : 1;
+                ubyte reserved : 1;
+                ubyte dc_Y444 : 1 <comment="sink supports 4:4:4 in deep color modes">;
+                ubyte dc_30bit : 1 <comment="sink supports 10-bit-per-channel deep color">;
+                ubyte dc_36bit : 1 <comment="sink supports 12-bit-per-channel deep color">;
+                ubyte dc_48bit : 1 <comment="sink supports 16-bit-per-channel deep color">;
+                ubyte supports_AI : 1 <comment="sink supports a function that needs info from ACP or ISRC packets">;
+            }
+            if (size >= 4)
+                ubyte max_TMDS_Frequency <read=TDMSFreqToString, comment="Maximum TMDS frequency">;
+            if (size >= 5)
+            {
+                ubyte reserved : 6;
+                ubyte i_latency_fields : 1 <comment="set if interlaced latency fields are present; if set four latency fields will be present">;
+                ubyte latency_fields : 1 <comment="set if latency fields are present">;
+                if (latency_fields)
+                {
+                    Latency videoLatency <comment="Video Latency (value=1+ms/2 with a max of 251 meaning 500ms)">;
+                    Latency audioLatency <comment="Audio Latency (value=1+ms/2 with a max of 251 meaning 500ms)">;
+                }
+                if (i_latency_fields)
+                {
+                    Latency interlacedVideoLatency <comment="Interlaced Video Latency (value=1+ms/2 with a max of 251 meaning 500ms)">;
+                    Latency interlacedAudioLatency <comment="Interlaced Audio Latency (value=1+ms/2 with a max of 251 meaning 500ms)">;
+                }
+            }
+            break;
+        }
+
+        case SPEAKER:
+        {
+            ubyte frontLeftRight : 1 <comment="Front Left / Front Right present for 1, absent for 0">;
+            ubyte LFE : 1 <comment="LFE present for 1, absent for 0">;
+            ubyte frontCenter : 1 <comment="Front Center present for 1, absent for 0">;
+            ubyte rearLeftRight : 1 <comment="Rear Left / Rear Right present for 1, absent for 0">;
+            ubyte rearCenter : 1 <comment="Rear Center present for 1, absent for 0">;
+            ubyte frontLeftRightCenter : 1 <comment="Front Left Center / Front Right Center present for 1, absent for 0">;
+            ubyte rearLeftRightCenter : 1 <comment="Rear Left Center / Rear Right Center present for 1, absent for 0">;
+            ubyte reserved : 1;
+            ubyte reserved[2];
+            break;
+        }
+    }   // switch
+
+//                        local int64 dataEnd <hidden=true> = FTell();
+//                        Printf("block size: %u %lu\n", size, dataEnd - dataStart);
+
+/*                        Assert(dataEnd - dataStart <= size, "Data block size error");
+    if (dataEnd - dataStart < size)
+    {
+        ubyte extraData[size - (dataEnd - dataStart)];
+    }*/
+} DataBlock <size=DataBlockSize, optimize=false, open=true, comment="Data block">;
+
+int DataBlockSize(DataBlock &b)
+{
+    return (ReadUByte(startof(b)) & 0x1F);
+}
+
+//--------------------------------------
+
+typedef struct
+{
+    uint16 pixelClock <read=PixelClockToString, write=StringToPixelClock, comment="Pixel clock in 10 kHz units. (0.01-655.35 MHz, little-endian)">;
+
+    ubyte hActive_lsb <comment="Horizontal active pixels 8 lsbits (0-4095)">;
+    ubyte hBlanking_lsb <comment="Horizontal blanking pixels 8 lsbits (0-4095) End of active to start of next active.">;
+    ubyte hBlanking_msb : 4 <comment="Horizontal blanking pixels 4 msbits">;
+    ubyte hActive_msb : 4 <comment="Horizontal active pixels 4 msbits">;
+    ubyte vActive_lsb <comment="Vertical active lines 8 lsbits (0-4095)">;
+    ubyte vBlanking_lsb <comment="Vertical blanking lines 8 lsbits (0-4095)">;
+    ubyte vBlanking_msb : 4 <comment="Vertical blanking lines 4 msbits">;
+    ubyte vActive_msb : 4 <comment="Vertical active lines 4 msbits">;
+    ubyte hSyncOffset_lsb <comment="Horizontal sync offset pixels 8 lsbits (0-1023) From blanking start">;
+    ubyte hSync_lsb <comment="Horizontal sync pulse width pixels 8 lsbits (0-1023)">;
+    ubyte vSync_lsb : 4 <comment="Vertical sync pulse width lines 4 lsbits (0-63)">;
+    ubyte vSyncOffset_lsb : 4 <comment="Vertical sync offset lines 4 lsbits (0-63)">;
+    ubyte vSync_msb : 2 <comment="Vertical sync pulse width lines 2 msbits">;
+    ubyte vSyncOffset_msb : 2 <comment="Vertical sync offset lines 2 msbits">;
+    ubyte hSync_msb : 2 <comment="Horizontal sync pulse width pixels 2 msbits">;
+    ubyte hSyncOffset_msb : 2 <comment="Horizontal sync offset pixels 2 msbits">;
+    ubyte hSize_lsb <comment="Horizontal display size, mm, 8 lsbits (0-4095 mm, 161 in)">;
+    ubyte vSize_lsb <comment="Vertical display size, mm, 8 lsbits (0-4095 mm, 161 in)">;
+    ubyte vSize_msb : 4 <comment="Vertical display size, mm, 4 msbits">;
+    ubyte hSize_msb : 4 <comment="Horizontal display size, mm, 4 msbits">;
+    ubyte hBorder <comment="Horizontal border pixels (each side; total is twice this)">;
+    ubyte vBorder <comment="Vertical border lines (each side; total is twice this)">;
+
+    ubyte _f0 : 1 <comment="2-way line-interleaved stereo, if bits 4-3 are not 00.">;
+    ubyte _f1 : 1 <comment="If analog sync: Sync on all 3 RGB lines (else green only). Digital: HSync polarity (1=positive)">;
+    ubyte _f2 : 1 <comment="If digital separate: Vertical sync polarity (1=positive). Other types: VSync serrated (HSync during VSync)">;
+    ubyte _f34 : 2 <comment="Sync type: 00=Analog composite; 01=Bipolar analog composite; 10=Digital composite (on HSync); 11=Digital separate">;
+    ubyte _f56 : 2 <comment="Stereo mode: 00=No stereo; other values depend on bit 0: Bit 0=0: 01=Field sequential, sync=1 during right; 10=similar, sync=1 during left; 11=4-way interleaved stereo. Bit 0=1 2-way interleaved stereo: 01=Right image on even lines; 10=Left image on even lines; 11=side-by-side">;
+    ubyte interlaced : 1 <comment="Interlaced">;
+
+    //if (_f34 >> 1 & 1) Printf("Digital sync: "); else Printf("Analog sync: ");
+    //if (_f34 >> 0 & 1) Printf("Bipolar/separate\n"); else Printf("Composite\n");
+} ModeLine <read=ModeLineToString, write=StringToModeLine, comment="Xfree86 modeline">;
+
+string ModeLineToString(ModeLine &n)
+{
+    uint hActive = (uint)n.hActive_msb<<8 | n.hActive_lsb;
+    uint hSyncOffset = (uint)n.hSyncOffset_msb<<8 | n.hSyncOffset_lsb;
+    uint hSync = (uint)n.hSync_msb<<8 | n.hSync_lsb;
+    uint hBlanking = (uint)n.hBlanking_msb<<8 | n.hBlanking_lsb;
+
+    uint vActive = (uint)n.vActive_msb<<8 | n.vActive_lsb;
+    uint vSyncOffset = (uint)n.vSyncOffset_msb<<8 | n.vSyncOffset_lsb;
+    uint vSync = (uint)n.vSync_msb<<8 | n.vSync_lsb;
+    uint vBlanking = (uint)n.vBlanking_msb<<8 | n.vBlanking_lsb;
+
+    uint im = n.interlaced ? 2 : 1;
+    string s;
+    SPrintf(s, "Modeline \"%ux%u\"   %.2lf   %4u %4u %4u %4u   %4u %4u %4u %4u  %chsync %cvsync %s  ; %u %u",       // relative to absolute
+        hActive, vActive*im, (double)n.pixelClock / 100,
+        hActive, hActive + hSyncOffset, hActive + hSyncOffset + hSync, hActive + hBlanking,
+        vActive*im, (vActive + vSyncOffset)*im, (vActive + vSyncOffset + vSync)*im, (vActive + vBlanking)*im,
+        n._f1 ? '+' : '-', n._f2 ? '+' : '-',
+        n.interlaced ? "Interlace" : "",
+        n.hBorder, n.vBorder
+    );
+    return s;
+}
+
+void StringToModeLine(ModeLine &n, string s)
+{
+    uint dummy;
+    uint hActive, hActive_hSyncOffset, hActive_hSyncOffset_hSync, hActive_hBlanking;
+    uint vActive, vActive_vSyncOffset, vActive_vSyncOffset_vSync, vActive_vBlanking;
+    char hsync, vsync;
+    string interlaced;
+    double f;
+    SScanf(s, "Modeline \"%ux%u\"   %lf   %u %u %u %u   %u %u %u %u  %chsync %cvsync %[^0-9;]",
+        dummy, dummy, f,
+        hActive, hActive_hSyncOffset, hActive_hSyncOffset_hSync, hActive_hBlanking,
+        vActive, vActive_vSyncOffset, vActive_vSyncOffset_vSync, vActive_vBlanking,
+        hsync, vsync,
+        interlaced
+    );
+    int p = Strchr(s, ';');
+    if (p >= 0) SScanf(SubStr(s, p), "; %u %u", n.hBorder, n.vBorder);
+
+    n.interlaced = (interlaced[0] == 'I');
+    uint im = n.interlaced ? 2 : 1;
+
+    uint hBlanking = hActive_hBlanking - hActive;
+    uint hSync = hActive_hSyncOffset_hSync - hActive_hSyncOffset;
+    uint hSyncOffset = hActive_hSyncOffset - hActive;
+    n.hActive_msb = hActive>>8; n.hActive_lsb = (ubyte)hActive;
+    n.hSyncOffset_msb = hSyncOffset>>8; n.hSyncOffset_lsb = (ubyte)hSyncOffset;
+    n.hSync_msb = hSync>>8; n.hSync_lsb = (ubyte)hSync;
+    n.hBlanking_msb = hBlanking>>8; n.hBlanking_lsb = (ubyte)hBlanking;
+
+    uint vBlanking = (vActive_vBlanking - vActive)/im;
+    uint vSync = (vActive_vSyncOffset_vSync - vActive_vSyncOffset)/im;
+    uint vSyncOffset = (vActive_vSyncOffset - vActive)/im;
+    vActive /= im;
+    n.vActive_msb = vActive>>8; n.vActive_lsb = (ubyte)vActive;
+    n.vSyncOffset_msb = vSyncOffset>>8; n.vSyncOffset_lsb = (ubyte)vSyncOffset;
+    n.vSync_msb = vSync>>8; n.vSync_lsb = (ubyte)vSync;
+    n.vBlanking_msb = vBlanking>>8; n.vBlanking_lsb = (ubyte)vBlanking;
+
+    n._f1 = hsync == '+' ? 1 : 0;
+    n._f2 = vsync == '+' ? 1 : 0;
+    n.pixelClock = f * 100;
+}
+
+//--------------------------------------
+
+struct File
+{
+    struct Header
+    {
+        ubyte pattern[8] <format=hex, comment="Fixed header pattern: 00 FF FF FF FF FF FF 00">;
+        EISAId eisaId <comment="EISA ID. Encoded as 3 5-bit letters (1=A, 26=Z), big-endian, with msbit reserved.">;
+        uint16 mfgProductId <comment="Manufacturer product code. 16-bit number, little-endian.">;
+        uint32 serial <comment="Serial number. 32 bits, little endian.">;
+        ubyte mfgWeek <comment="Week of manufacture. Week numbering is not consistent between manufacturers.">;
+        ubyte mfgYear <comment="Year of manufacture, less 1990. (1990-2245). If week=255, it is the model year instead.">;
+        ubyte edidVersion <comment="EDID version, usually 1 (for 1.3)">;
+        ubyte edidRevision <comment="EDID revision, usually 3 (for 1.3)">;
+    } header <open=false, comment="Header information">;
+
+    struct Basic
+    {
+        union Bitmap
+        {
+            ubyte hmz;
+            if (hmz & 0x80)
+            {
+                struct Digital
+                {
+                    ubyte vesa : 1 <comment="Signal is compatible with VESA DFP 1.x TMDS CRGB, 1 pixel per clock, up to 8 bits per color, MSB aligned,">;
+                    ubyte reserved : 6 <comment="Reserved, must be 0">;
+                    ubyte digital : 1 <comment="1=Digital input">;
+                } digital;
+            }
+            else
+            {
+                struct Analog
+                {
+                    ubyte vSeparate : 1 <comment="VSync pulse must be separated when composite or sync-on-green is used">;
+                    ubyte syncOnGreen : 1 <comment="Sync on green supported">;
+
+                    ubyte compositeSync : 1 <comment="Composite sync (on HSync) supported">;
+                    ubyte separateSync : 1 <comment="Separate sync supported">;
+                    ubyte blankToBlack : 1 <comment="Blank-to-black setup (pedestal) expected">;
+                    ubyte level : 2 <comment="Video white and sync levels, relative to blank: 00=+0.7/ 0.3 V; 01=+0.714/ 0.286 V; 10=+1.0/ 0.4 V; 11=+0.7/0 V">;
+                    ubyte analog : 1 <comment="0=Analog input">;
+                } analog;
+            }
+        } bitmap <comment="Video input parameters bitmap">;
+
+        ubyte width <comment="Maximum horizontal image size, in centimetres (max 292 cm/115 in at 16:9 aspect ratio)">;
+        ubyte height <comment="Maximum vertical image size, in centimetres. If either byte is 0, undefined (e.g. projector)">;
+        ubyte gamma <comment="Display gamma, minus 1, times 100 (range 1.00-3.54)">;
+
+        struct Features
+        {
+            ubyte gtf : 1 <comment="GTF supported with default parameter values.">;
+            ubyte prefTimingDesc1 : 1 <comment="Preferred timing mode specified in descriptor block 1.">;
+            ubyte sRGB : 1 <comment="Standard sRGB colour space. Bytes 25-34 must contain sRGB standard values.">;
+            if (bitmap.hmz & 0x80)
+                ubyte displayType : 2 <comment="Display type (digital): 00 = RGB 4:4:4; 01 = RGB 4:4:4 + YCrCb 4:4:4; 10 = RGB 4:4:4 + YCrCb 4:2:2; 11 = RGB 4:4:4 + YCrCb 4:4:4 + YCrCb 4:2:2">;
+            else
+                ubyte displayType : 2 <comment="Display type (analog): 00 = Monochrome or Grayscale; 01 = RGB color; 10 = Non-RGB color; 11 = Undefined">;
+            ubyte dpmsActiveOff : 1 <comment="DPMS active-off supported">;
+            ubyte dpmsSusepend : 1 <comment="DPMS suspend supported">;
+            ubyte dpmsStandby : 1 <comment="DPMS standby supported">;
+        } features <comment="Supported features bitmap">;
+    } basic <open=false, comment="Basic display parameters">;
+
+    struct Chromaticity
+    {
+        ubyte green_y_lsb : 2 <comment="Green y value least-significant 2 bits">;
+        ubyte green_x_lsb : 2 <comment="Green x value least-significant 2 bits">;
+        ubyte red_y_lsb : 2 <comment="Red y value least-significant 2 bits">;
+        ubyte red_x_lsb : 2 <comment="Red x value least-significant 2 bits">;
+        ubyte bluewhite_lsb : 2 <comment="Blue and white least-significant 2 bits">;
+        ubyte zero : 6;     // Lelouch
+        ubyte red_x_msb <comment="Red x value most significant 8 bits. 0-255 encodes 0-0.996 (255/256); 0-0.999 (1023/1024) with lsbits">;
+        ubyte red_y_msb <comment="Red y value most significant 8 bits">;
+        ubyte green_x_msb <comment="Green x value most significant 8 bits">;
+        ubyte green_y_msb <comment="Green y value most significant 8 bits">;
+        ubyte blue_x_msb <comment="Blue x value most significant 8 bits">;
+        ubyte blue_y_msb <comment="Blue y value most significant 8 bits">;
+        ubyte white_x_msb <comment="Default white point x value most significant 8 bits">;
+        ubyte white_y_msb <comment="Default white point y value most significant 8 bits">;
+    } chromaticity <bgcolor=cLtAqua, comment="Chromaticity coordinates. 10-bit CIE xy coordinates for red, green, blue, and white. [0-1023/1024].">;
+    
+    struct Timings
+    {
+        ubyte _800x600_60 : 1;
+        ubyte _800x600_56 : 1;
+        ubyte _640x480_75 : 1;
+        ubyte _640x480_72 : 1;
+        ubyte _640x480_67 : 1;
+        ubyte _640x480_60 : 1;
+        ubyte _720x400_88 : 1;
+        ubyte _720x400_70 : 1;
+        ubyte _1280x1024_75 : 1;
+        ubyte _1024x768_75 : 1;
+        ubyte _1024x768_72 : 1;
+        ubyte _1024x768_60 : 1;
+        ubyte _1024x768i_87 : 1;
+        ubyte _832x624_75 : 1;
+        ubyte _800x600_75 : 1;
+        ubyte _800x600_72 : 1;
+        ubyte mfgSpecific : 7;
+        ubyte _1152x870_75 : 1; // Apple Macintosh II
+    } timings <bgcolor=cLtGreen, comment="Established timing bitmap. Supported bitmap for very common timing modes.">;
+
+    Timing timings2[8] <bgcolor=cLtGreen, comment="Standard timing information. Up to 8 2-byte fields describing standard display modes.">;
+    
+    struct Descriptor
+    {
+        if (ReadUShort(FTell()) != 0)
+        {
+            ModeLine numbers;
+        }
+        else
+        {
+            uint16 zero;
+            ubyte zero;
+            DescriptorType descriptorType;   // FA-FF currently defined. 00-0F reserved for vendors.
+            ubyte zero;
+            switch (descriptorType)
+            {
+                case TIMINGS:
+                    Timing timings[6] <comment="Additional standard timing identifiers. 6- 2-byte descriptors, padded with 0A.">;
+                    break;
+
+                case MONITOR_NAME:
+                    char name[13] <comment="Monitor name (text)">;
+                    break;
+
+                case SERIAL_NUMBER:
+                    char serial[13] <comment="Monitor serial number (text)">;
+                    break;
+
+                case UNSPECIFIED_TEXT:
+                    char text[13] <comment="Unspecified text (text)">;
+                    break;
+
+                case RANGE_LIMITS:  // Monitor range limits. 6- or 13-byte binary descriptor.
+                {
+                    ubyte vMinRate <comment="Minimum vertical field rate">;
+                    ubyte vMaxRate <comment="Maximum vertical field rate">;
+                    ubyte hMinRate <comment="Minimum horizontal line rate">;
+                    ubyte hMaxRate <comment="Maximum horizontal line rate">;
+                    PixelRate maxPixelRate <comment="Maximum pixel clock rate, rounded up to 10 MHz multiple (10-2550 MHz)">;
+                    ubyte extended <comment="02: Secondary GTF supported, parameters as follows.">;
+                    if (extended == 0x02)
+                    {
+                        ubyte reserved;
+                        ubyte startFreqSecondCurve <comment="Start frequency for secondary curve, divided by 2 kHz (0-510 kHz)">;
+                        ubyte gtf_C <comment="C value, multiplied by 2 (0-127.5)">;
+                        uint16 gtf_M <comment="GTF M value (0-65535, little-endian)">;
+                        ubyte gtf_K <comment="GTF K value (0-255)">;
+                        ubyte gtf_J <comment="GTF J value, multiplied by 2 (0-127.5)">;
+                    }
+                    else
+                    {
+                        ubyte padding[7] <comment="0A 20 20 20 20 20 20">;
+                    }
+                    break;
+                }
+
+                case WHITE_POINT:  // Additional white point data. 2- 5-byte descriptors, padded with 0A 20 20.
+                {
+                    struct
+                    {
+                        ubyte indexNumber <comment="Point index number (1-255) Usually 1; 0 indicates descriptor not used.">;
+                        ubyte white_y_lsb : 2 <comment="White point y value least-significant 2 bits">;
+                        ubyte white_x_lsb : 2 <comment="White point x value least-significant 2 bits">;
+                        ubyte unused : 4;   // (C) DarkFader
+                        ubyte white_x_msb <comment="White point x value most significant 8 bits (like EDID byte 27)">;
+                        ubyte white_y_msb <comment="White point y value most significant 8 bits (like EDID byte 28)">;
+                        ubyte gamma <comment="Gamma value, minus 1, time 100 (1.0-3.54, like EDID byte 23)">;
+                    } whitePoints[2] <bgcolor=cLtAqua, comment="Additional white point descriptors">;
+                    ubyte padding[3] <comment="0A 20 20">;
+                    break;
+                }
+
+                default:
+                {
+                    ubyte unknown[13];
+                    Warning("Unknown descriptor type");
+                    break;
+                }
+            }
+        }
+    } descriptors[4] <optimize=false, bgcolor=cLtGray, comment="Detailed Timing Descriptor blocks, in decreasing preference order. After all detailed timing descriptors, additional descriptors are permitted.">;
+
+
+    ubyte extensionCount <comment="Number of extensions to follow. 0 if no extensions.">;
+    ubyte checksum <format=hex, comment="Sum of all 128 bytes should equal 0 (mod 256).">;
+
+//--------------------------------------
+
+    struct CEA_EDID
+    {
+        local int64 extensionBlockStart <hidden=true> = FTell();
+
+        ubyte extensionTag <comment="Extension tag (which kind of extension block this is); 02h for CEA EDID">;
+        switch (extensionTag)
+        {
+            case 0x02:  // Additional Timing Data Block (CEA EDID Timing Extension)
+            {
+                ubyte revision <comment="Revision number (Version number); 03h for Version 3">;
+                ubyte dtdStart <comment="Byte number \"d\" within this block where the 18-byte DTDs begin.">;
+                ubyte dtdCount : 4 <comment="total number of native formats in the DTDs included in this block">;
+                ubyte YCbCr422 : 1 <comment="1 if display supports YCbCr 4:2:2, 0 if not">;
+                ubyte YCbCr444 : 1 <comment="1 if display supports YCbCr 4:4:4, 0 if not">;
+                ubyte basic_audio : 1 <comment="1 if display supports basic audio, 0 if not">;
+                ubyte underscan : 1 <comment="if display supports underscan, 0 if not">;
+
+                while (FTell() < extensionBlockStart + dtdStart)
+                {
+                    DataBlock dataBlock;
+                }   // while
+                
+                if (FTell() != extensionBlockStart + dtdStart)
+                {
+                    Warning("Unexpected DTD start");
+                }
+                
+                FSeek(extensionBlockStart + dtdStart);
+
+                while (ReadUShort(FTell()) != 0)
+                {
+                    Descriptor descriptor <optimize=false, bgcolor=cLtGray, comment="Detailed Timing Descriptor block">;
+                }
+
+                ubyte padding[127 - (FTell() - extensionBlockStart)] <format=hex, comment="Post-DTD padding. Should be populated with 00h">;
+                ubyte checksum <format=hex, comment="This byte should be programmed such that the sum of all 128 bytes equals 00h.">;
+                if (Checksum(CHECKSUM_SUM8, extensionBlockStart, 128) != 0) Warning("Invalid extension block checksum!");
+
+                break;
+            }
+
+            default:
+                Warning("Unsupported extension block");
+                break;
+        }
+    } extensions[extensionCount] <optimize=false, open=true, comment="EDID Extensions">;
+
+
+} file <open=true, fgcolor=cBlue>;
+
+//--------------------------------------

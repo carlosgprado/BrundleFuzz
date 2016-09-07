@@ -1,0 +1,138 @@
+//--------------------------------------
+//--- 010 Editor v2.0.1 Binary Template
+//
+//    File: PNGTemplate.bt
+//  Author: Kevin O. Grover <kevin@kevingrover.net>
+// Purpose: A template for parsing PNG (Portable Network Graphics) files.
+// Version: 1.1   2009-02-25
+// History:
+// 2005-05-11  KOG  Initial version
+// 2005-06-29  KOG  Fixed typos in comments
+// 2009-02-23  KOG  Decode IHDR and tEXt chunks
+//
+// This template was written to the PNG 1.2 Specification.
+// Note however, that it does not check nor parse chunk subdata, so it
+// should work with all future PNG specifications.
+//
+// Also, a possible caveat: PNG encourages the type of chunks to be
+// mapped to strings of the form "[a-zA-Z]{4}".  However, it's not a requirement.
+//
+// Summary of PNG Format:
+// A PNG file consists of an 8 byte ID followed by a series of chunks.
+// Each Chunk is
+//   length (4 bytes), chunk_type (4 bytes), data (length bytes), crc (4 bytes)
+//   CRC Does NOT include the length bytes.
+//--------------------------------------
+
+BigEndian();                  // PNG files are in Network Byte order
+
+const uint64 PNGMAGIC = 0x89504E470D0A1A0AL;
+
+// Chunk Type
+typedef union {
+    uint32  ctype <format=hex>; // Chunk Type
+    char    cname[4];           // character representation
+} CTYPE <read=readCTYPE>;
+
+string readCTYPE(local CTYPE &t) {
+    return t.cname;
+}
+
+// -- Specific Chunks
+
+// IHDR - Image Header
+
+typedef struct {
+    uint32   width;
+    uint32   height;
+    ubyte    bits;
+    ubyte    color_type;
+    ubyte    compression;
+    ubyte    filter;
+    ubyte    interlace;
+} IHDR <read=readIHDR>;
+
+string readIHDR(local IHDR &ihdr) {
+    local string s;
+    SPrintf(s, "%i x %i (x%i)", ihdr.width, ihdr.height, ihdr.bits);
+    return s;
+}
+
+// tEXt - Text Data
+
+typedef struct {
+    string label;                                // to the first NULL (including)
+    char   data[length - Strlen(label) - 1];     // rest of the data
+} tEXt <read=readtEXt>;
+
+string readtEXt(local tEXt &text) {
+    local string s;
+    SPrintf(s, "%s = %s", text.label, text.data);
+    return s;
+}
+
+// -- End: Specific Chunks
+
+local uint32 CHUNK_CNT = 0;
+
+// Generic Chunks
+typedef struct {
+    uint32  length;             // Number of data bytes (not including length,type, or crc)
+    local quad pos_start = FTell();
+    CTYPE   type;               // Type of chunk
+    if (type.cname == "IHDR") {
+        IHDR    ihdr;
+    } else if (type.cname == "tEXt") {
+        tEXt    text;
+    } else {
+        ubyte   data[length];       // Data (or not present)
+    }
+    local quad data_size = FTell() - pos_start;
+    uint32  crc <format=hex>;   // CRC type and data (not including length or crc)
+    local uint32 crc_calc = Checksum(CHECKSUM_CRC32, pos_start, data_size);
+    if (crc != crc_calc) {
+        local string msg;
+        SPrintf(msg, "*WARNING CRC Mismatch @ chunk[%d] (%08x != %08x)\n", CHUNK_CNT, crc, crc_calc);
+        Warning(msg);
+        Printf(msg);
+    }
+    CHUNK_CNT++;
+} CHUNK <read=readCHUNK>;
+
+
+// Chunks can be in any order: HOWEVER, IHDR must be first, IEND must be last
+// Bit 5s in chunk type bytes are used to flag some things:
+//    Ancillary bit: bit 5 of 1st byte: 0=Critical, 1=Ancillary
+//      Private bit: bit 5 of 2nd byte: 0=Public, 1=Private
+//     Reserved bit: bit 5 of 3rd byte: MUST be 0
+// Safe to Copy bit: bit 5 of 4th byte: 0=Unsafe to Copy, 1=Safe to Copy
+string readCHUNK(local CHUNK &c) {
+    local string s;
+    s=readCTYPE(c.type)+"  (";
+    s += (c.type.cname[0] & 0x20) ? "Ancillary, "      : "Critical, ";
+    s += (c.type.cname[1] & 0x20) ? "Private, "        : "Public, ";
+    s += (c.type.cname[2] & 0x20) ? "ERROR_RESERVED, " : "";
+    s += (c.type.cname[3] & 0x20) ? "Safe to Copy)"    : "Unsafe to Copy)";
+    return s;
+}
+
+// ---------------------------------------------------------------------------
+// MAIN  --  Here's where we really allocate the data
+// ---------------------------------------------------------------------------
+
+uint64 pngid <format=hex>;
+if (pngid != PNGMAGIC) {
+    Warning("Invalid PNG File: Bad Magic Number");
+    return -1;
+}
+while(!FEof()) {
+    CHUNK chunk;
+}
+if (CHUNK_CNT > 1) {
+    if ((chunk[0].type.cname != "IHDR") || (chunk[CHUNK_CNT-1].type.cname != "IEND")) {
+        local string msg;
+        SPrintf(msg, "*WARNING: Chunk IHDR must be first and chunk IEND must be last!\n");
+        Warning(msg);
+        Printf(msg);
+    }
+}

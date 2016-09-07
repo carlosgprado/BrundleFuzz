@@ -1,0 +1,426 @@
+//-----------------------------------
+//--- 010 Editor v2.0 Binary Template
+//
+// File:     Tacx Total Template.bt
+// Author:   Nestor Matas
+// Revision: 1.0
+// Purpose:  Defines a template for
+//    parsing All Tacx files PGMF CAF IMF RLV MRLV.
+//-----------------------------------
+
+// Define structures used in Tacx files
+
+typedef struct {   
+WORD FileFingerprint;
+WORD FileVersion;
+DWORD BlockCount;
+} HEADER;
+
+typedef struct {    
+
+WORD BlockFingerprint;	//Identifies the data to follow
+WORD BlockVersion;	//A 3 digit number indicating the block version, e.g. 100 or 110
+DWORD RecordCount;	//Number of records in the block
+DWORD RecordSize;	//Size of each record in the block
+} INFOBLOCK;
+
+typedef struct {   
+  DWORD CheckSum;
+CHAR CourseName[34];		
+DWORD WattSlopePulse;	//0 = Watt program, 1 = Slope program, 2 = Pulse (HR) program
+DWORD TimeDist;		//0 = Time based program, 1 = distance based program
+DOUBLE TotalTimeDist;	//Total time (in seconds) or distance (in metres) of complete program
+DOUBLE EnergyCons;	
+FLOAT AltitudeStart;	
+DWORD BrakeCategory;
+} GENERALINFO;
+
+typedef struct {   
+FLOAT DurationDistance;	//Seconds or metres, depending on program type
+FLOAT PulseSlopeWatts;	//Pulse, slope or watts data, depending on program type
+FLOAT RollingFriction;	// Usually 4.0
+} PROGRAM;
+
+typedef struct {   
+FLOAT Start; //Start of route section (time (s) or distance (m), depending on program type)
+FLOAT End; //End of route section (time (s) or distance (m), depending on program type)
+CHAR CourseSegmentName[66];
+CHAR TextFile[522];
+} COURSEINFO;
+
+typedef struct{
+CHAR VideoFileName[522];//		Location of the RLV AVI file
+FLOAT FrameRate; // Video frame rate
+FLOAT OrgRunWeight;
+INT FrameOffset;
+} RLVINFO;
+
+typedef struct{
+UINT16 Year; 
+UINT16 Month;
+UINT16 DayOfWeek;
+UINT16 DayOfMonth;
+UINT16 Hour;
+UINT16 Minute;
+UINT16 Second;
+UINT16 Millisecond;
+FLOAT RecordInterval;// secs
+DOUBLE Distance;//m	
+DOUBLE Duration; //s	
+INT32 CoolDownCount;
+UINT32 NotFinished;//0 = ride completed, 1 = ride not completed
+BYTE HRMin; //bpm	
+BYTE HRMax; //bpm	
+CHAR Feeling[42];
+CHAR Temperature[22]; //deg C	
+UINT16 VendorID;
+UINT16 BrakeType; //Brake type. i-Magic 6402, Fortius 6466, Cosmos 6514, Fortagic (Fortius Multiplayer) 6450
+UINT32 SerialNo; //
+UINT32 DriverVersion; //The format of the version number is part1.part2.part3 where part1 = (DriverVersion & 0xFF0000) >> 16, part2 = (DriverVersion & 0xFF00) >> 8 and part3 = DriverVersion & 0xFF
+UINT16 TrainerYear;//Trainer year of manufacture
+BYTE TrainerMonth;
+BYTE TrainerDay;
+UINT32 BrakeSerialNo;
+UINT32 BrakeVersion;
+UINT16 BrakeYear;
+BYTE BrakeMonth;
+BYTE BrakeDay;
+INT16 CalibrationX10; //Divide by 10 to get calibration value
+BYTE ScaleFactor;
+BYTE Reserved_1;
+UINT32 Reserved_2;
+FLOAT CA; //VR parameters
+FLOAT Ccw;//VR parameters
+FLOAT Crho;//VR parameters
+FLOAT Crr;//VR parameters
+FLOAT CeffBike;//VR parameters
+FLOAT CeffCyclist;//VR parameters
+FLOAT Slope;//VR parameters
+INT16 AirSpeedAbs;//VR parameters
+BYTE BikeMass;//VR parameters
+BYTE CyclistWeight;//VR parameters
+FLOAT VirtSpeedAccelFactor;//VR parameters
+UINT32 Reserved_3;
+UINT32 Reserved_4;
+INT32 LazyMode;
+INT32 VRParamExt;
+INT32 RLVFlags;
+} RIDEINFO_100;
+
+typedef struct{
+UINT16 Year; 
+UINT16 Month;
+UINT16 DayOfWeek;
+UINT16 DayOfMonth;
+UINT16 Hour;
+UINT16 Minute;
+UINT16 Second;
+UINT16 Millisecond;
+FLOAT RecordInterval;// secs
+DOUBLE Distance;//m	
+DOUBLE Duration; //s	
+INT32 CoolDownCount;
+UINT32 NotFinished;//0 = ride completed, 1 = ride not completed
+BYTE HRMin; //bpm	
+BYTE HRMax; //bpm	
+CHAR Feeling[42];
+CHAR Temperature[22]; //deg C	
+UINT16 VendorID;
+UINT16 BrakeType; //Brake type. i-Magic 6402, Fortius 6466, Cosmos 6514, Fortagic (Fortius Multiplayer) 6450
+UINT32 SerialNo; //
+UINT32 DriverVersion; //The format of the version number is part1.part2.part3 where part1 = (DriverVersion & 0xFF0000) >> 16, part2 = (DriverVersion & 0xFF00) >> 8 and part3 = DriverVersion & 0xFF
+UINT16 TrainerYear;//Trainer year of manufacture
+BYTE TrainerMonth;
+BYTE TrainerDay;
+UINT32 BrakeSerialNo;
+UINT32 BrakeVersion;
+UINT16 BrakeYear;
+BYTE BrakeMonth;
+BYTE BrakeDay;
+INT16 CalibrationX10; //Divide by 10 to get calibration value
+BYTE ScaleFactor;
+BYTE Reserved_1;
+UINT32 Reserved_2;
+FLOAT CA; //VR parameters
+FLOAT Ccw;//VR parameters
+FLOAT Crho;//VR parameters
+FLOAT Crr;//VR parameters
+FLOAT CeffBike;//VR parameters
+FLOAT CeffCyclist;//VR parameters
+FLOAT Slope;//VR parameters
+INT16 AirSpeedAbs;//VR parameters
+BYTE BikeMass;//VR parameters
+BYTE CyclistWeight;//VR parameters
+FLOAT VirtSpeedAccelFactor;//VR parameters
+UINT32 Reserved_3;
+UINT32 Reserved_4;
+INT32 RLVSlopeAdjustmentPercent;
+INT32 VRParamExt;
+INT32 RLVFlags;
+CHAR CourseName[34];
+} RIDEINFO_110;
+
+
+typedef struct{
+CHAR Team[34];
+CHAR RiderName[34];
+FLOAT Weight; //kg	
+BYTE Gender; //		0 = female, 1 = male for VR, reversed for Catalyst
+FLOAT Height;//	cm	
+UINT BirthYear;// UInt32		
+BYTE BirthMonth;	
+BYTE BirthDay;
+BYTE HRMax;//bpm	
+BYTE HRRest;//bpm	
+BYTE HRAThreshold;
+BYTE HRZone1;
+BYTE HRZone2;
+BYTE HRZone3;
+BYTE HRZone4;
+BYTE HRZone5;
+CHAR Email[522];
+CHAR Country[66];
+CHAR Remarks[522];
+} RIDERINFO;
+
+typedef struct{
+FLOAT Distance;
+BYTE HR;
+BYTE Cadence;
+UINT16 PowerX10;//Divide by 10 to get actual power in watts
+UINT16 SpeedX10;//Divide by 10 to get actual speed in km/h
+} RIDEDATA;
+
+typedef struct{
+UINT CRC32;
+CHAR SegmentName[66];
+CHAR InfoFile[522];
+DOUBLE Distance;
+INT32 PrgCnt;
+} RLV_MULTICOURSE;
+
+typedef struct{
+UINT32 CRC32;
+CHAR ProgName[34];
+INT32 PrgIdx;
+DOUBLE DistTimeBeg;
+DOUBLE DistTimeEnd;
+CHAR Name[66];
+CHAR InfoFil[522];
+INT32 LapCount;
+} RLV_MULTISECT;
+
+typedef struct{
+UINT32 FrameNumber;
+FLOAT DistancePerFrame;
+} RLV_FRAMEDISTANCE;
+
+typedef struct{
+INT32 Frame; // Frame number
+INT32 Cmd;
+} RLV_INFOBOX;
+
+typedef struct{
+  DWORD CheckSum;
+CHAR CourseName[34];
+CHAR Terrain[34];
+FLOAT RecordInterval;
+DOUBLE CourseDistance;
+DOUBLE RunTime;//Total run time of pilot route
+INT32 CoolDownCount;
+INT32 RunFlags;
+INT32 BrakeType;
+} GENERAL_INFO_VR;
+
+typedef struct{
+FLOAT X; //x co-ordinate on 3D map
+FLOAT Y; //y co-ordinate on 3D map (and height in metres)
+FLOAT Z; //z co-ordinate on 3D map
+FLOAT Alpha;//Horizontal alignment of rider at each coordinate
+FLOAT Beta; //Declination of rider at each coordinate
+FLOAT Gamma;
+BYTE HeartRate;
+BYTE Cadence;
+INT16 PowerX10;
+INT16 SpeedX10;
+FLOAT TerrainAngle;
+FLOAT ForkAngle; // < -100 = crash
+} COURSE_DATA_VR;
+
+typedef struct{
+CHAR CourseName[34];
+CHAR Terrain[34];
+UINT16 Year; 
+UINT16 Month;
+UINT16 DayOfWeek;
+UINT16 DayOfMonth;
+UINT16 Hour;
+UINT16 Minute;
+UINT16 Second;
+UINT16 Millisecond;
+FLOAT RecordInterval;// secs
+DOUBLE Distance;//m	
+DOUBLE Duration; //s	
+INT32 CoolDownCount;
+UINT32 NotFinished;//0 = ride completed, 1 = ride not completed
+BYTE HRMin; //bpm	
+BYTE HRMax; //bpm	
+CHAR Feeling[42];
+CHAR Temperature[22]; //deg C	
+UINT16 VendorID;
+UINT16 BrakeType; //Brake type. i-Magic 6402, Fortius 6466, Cosmos 6514, Fortagic (Fortius Multiplayer) 6450
+UINT32 SerialNo; //
+UINT32 DriverVersion; //The format of the version number is part1.part2.part3 where part1 = (DriverVersion & 0xFF0000) >> 16, part2 = (DriverVersion & 0xFF00) >> 8 and part3 = DriverVersion & 0xFF
+UINT16 TrainerYear;//Trainer year of manufacture
+BYTE TrainerMonth;
+BYTE TrainerDay;
+UINT32 BrakeSerialNo;
+UINT32 BrakeVersion;
+UINT16 BrakeYear;
+BYTE BrakeMonth;
+BYTE BrakeDay;
+INT16 CalibrationX10; //Divide by 10 to get calibration value
+BYTE ScaleFactor;
+BYTE Reserved_1;
+UINT32 Reserved_2;
+FLOAT CA; //VR parameters
+FLOAT Ccw;//VR parameters
+FLOAT Crho;//VR parameters
+FLOAT Crr;//VR parameters
+FLOAT CeffBike;//VR parameters
+FLOAT CeffCyclist;//VR parameters
+FLOAT Slope;//VR parameters
+INT16 AirSpeedAbs;//VR parameters
+BYTE BikeMass;//VR parameters
+BYTE CyclistWeight;//VR parameters
+FLOAT VirtSpeedAccelFactor;//VR parameters
+UINT32 Reserved_3;
+UINT32 Reserved_4;
+INT32 LazyMode;
+INT32 VRParamExt;
+INT32 CollisionsOn;
+FLOAT WindStrength;//0 = none, 12 = low, 24 = middle, 36 = high
+FLOAT WindDirection;// -180 < x <= 180 (north = 0)
+FLOAT ScaleFactor2;
+INT32 CrashTimesCount;
+} RIDEINFO_VR;
+
+typedef struct{
+FLOAT X; //x co-ordinate on 3D map
+FLOAT Y; //y co-ordinate on 3D map (and height in metres)
+FLOAT Z; //z co-ordinate on 3D map
+FLOAT Alpha; //Horizontal alignment of rider at each co-ordinate
+FLOAT Beta; //Declination of rider at each co-ordinate
+FLOAT Gamma;
+BYTE HR;//bpm	Heart rate
+BYTE Cadence;//rpm	
+UINT16 PowerX10;//watts x 10
+UINT16 SpeedX10;//km/h x 10
+FLOAT TerrainAngle;//Vertical alignment of rider at each co-ordinate
+FLOAT ForkAngle;//< -100 = crash
+} RIDEDATA_VR;
+
+typedef struct{
+UINT32 LapTime; //ms	Cumulative
+} LAPDATA;
+
+// Define the headers
+LittleEndian(); 
+
+HEADER head;
+
+// Check for header
+if( head.FileFingerprint != 4000 
+	&& head.FileFingerprint != 3000 
+	&& head.FileFingerprint != 2000 
+	&& head.FileFingerprint != 1000 )
+{
+    Warning( "File is not a Tacx file. Template stopped." );
+    return -1;
+}
+local int i;
+
+for (i=0; i<head.BlockCount;i++)
+{
+	INFOBLOCK blk;
+	if( blk.BlockFingerprint == 1010 )
+	{
+		GENERALINFO ginfo[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 2040 )
+	{
+		COURSEINFO courseinfo[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 1020 )
+	{
+		PROGRAM pdata[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 210 )
+	{
+		RIDERINFO rinfo;
+	}
+	else if( blk.BlockFingerprint == 2010 )
+	{
+		RLVINFO rlvinfo;
+	}
+	else if( blk.BlockFingerprint == 3010 )
+	{
+		if(blk.BlockVersion == 100)
+			RIDEINFO_100 rideinfo;
+		else if(blk.BlockVersion == 110)
+			RIDEINFO_110 rideinfo;
+	}
+	else if( blk.BlockFingerprint == 120 )
+	{
+		char notes[blk.RecordCount*blk.RecordSize];
+	}
+	else if( blk.BlockFingerprint == 3020 )
+	{
+		RIDEDATA ride[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 6010 )
+	{
+		RLV_MULTICOURSE rlvmcourse;
+	}
+	else if( blk.BlockFingerprint == 6020 )
+	{
+		RLV_MULTISECT rlvmsect;
+	}
+	else if( blk.BlockFingerprint == 130 )
+	{
+		DOUBLE unkown_130;
+	}
+	else if( blk.BlockFingerprint == 2020 )
+	{
+		RLV_FRAMEDISTANCE rlvfd[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 2030 )
+	{
+		RLV_INFOBOX iboxes[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 4010 )
+	{
+		GENERAL_INFO_VR ginfovr[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 4020 )
+	{
+		COURSE_DATA_VR cdatavr[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 4030 )
+	{
+		RIDEINFO_VR rinfovr[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 110 )
+	{
+		LAPDATA lapdata[blk.RecordCount];
+	}
+	else if( blk.BlockFingerprint == 4040)
+	{
+		RIDEDATA_VR ridedata_vr[blk.RecordCount];
+	}
+	else 
+	{
+		Warning( "Unknown Block Fingerprint");
+		return -1;
+	}
+}

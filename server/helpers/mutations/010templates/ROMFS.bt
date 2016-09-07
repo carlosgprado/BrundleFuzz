@@ -1,0 +1,278 @@
+//--------------------------------------
+//--- 010 Editor v5.0beta1 Binary Template
+//
+// File: ROMFS.bt
+// Author: Jordan Milne <jordan.milne-sw@saynotolinux.com>
+// Revision: v0.2
+// Purpose: Reverse engineering romfs images used in embedded devices
+//--------------------------------------
+
+//test suite in hex format at https://github.com/chexum/genromfs/tree/master/selftest
+//format documentation at https://www.kernel.org/doc/Documentation/filesystems/romfs.txt
+
+RequiresVersion(4, 0);
+
+//RomFS uses big endian throughout
+BigEndian();
+
+//Color correct checksums green, bad checksums red
+//Print warnings about correctness issues
+#define STRICT_CHECKS 1
+
+//Max number of bytes to read for the superblock checksum
+//Defaults to 512 as per the spec.
+#define MAX_SB_CHECKSUM_BYTES 512
+
+//Magic bytes that identify a romfs image
+#define MAGIC_BYTES_LEN 8
+local char MAGIC_BYTES[] = "-rom1fs-";
+
+//round up to the nearest multiple of 16
+int pad16(int val)
+{
+    return ((val & 0xf) ? (val + 16) & ~0xf : val);
+}
+
+//returns 0 for correct magic bytes, anything else is failure
+int RomFSCheckMagicBytes()
+{
+    local char found_bytes[MAGIC_BYTES_LEN];
+    ReadBytes(found_bytes, 0, MAGIC_BYTES_LEN);
+    return (Memcmp(MAGIC_BYTES, found_bytes, MAGIC_BYTES_LEN));
+}
+
+//returns 0 if checksum field for the superblock is correct and generate is 0
+//returns the generated checksum if generate is 1
+int32 RomFSSBChecksum(int generate)
+{
+    local int64 skip_pos = -1;
+    local int32 sum;
+    
+    //skip the checksum field when calculating the checksum
+    if(generate)
+        skip_pos = 3;
+
+    sum = RomFSChecksum(0, MAX_SB_CHECKSUM_BYTES, skip_pos);
+
+    //negate sum so checksum will work out to 0 when put it's put in the checksum field
+    //and generate is 0
+    if(generate)
+        sum = -sum;
+
+    return sum;
+}
+
+//alternative to ChecksumAlgStr CHECKSUM_INT_BE that can skip a byte
+int32 RomFSChecksum(int64 pos, int64 num_bytes, int64 skip_pos)
+{
+    local int64 i;
+    local int32 sum = 0;
+    local int64 file_size = FileSize();
+    if(num_bytes > file_size)
+        num_bytes = file_size;
+
+    //convert the number of bytes to number of ints
+    local int64 len = num_bytes >> 2;
+
+    for(i = 0; i < len; ++i)
+    {
+        if(i != skip_pos)
+            sum += ReadInt(pos + (i * 4));
+    }
+
+    return sum;
+}
+
+//get the length of the RomFS string at pos
+int RomFSReadStringLength(int64 pos)
+{
+    return pad16(ReadStringLength(pos));
+}
+
+//ROMFS strings are null-terminated and padded to 16 byte boundaries.
+typedef struct {
+    string val;
+
+    //length (including terminating null)
+    local int len = Strlen(val) + 1;
+    local int pad_len = 16 - (len % 16);
+    
+    //take up the rest of the space to reach the 16 byte boundary
+    if(pad_len)
+        char padding[pad_len];
+} RomFSString <read=ReadRomFSString, write=WriteRomFSString>;
+
+string ReadRomFSString(RomFSString& v)
+{
+	string s;
+	SPrintf( s, "%s", v.val );
+	return s;
+}
+
+//Beware strings shorter than than old_len % 16 and longer than old_len + pad,
+//they'll invalidate all of the positions (next_header, etc) in the entire image. Oh dear!
+void WriteRomFSString(RomFSString& orig_str, string s)
+{
+    local int start = startof(orig_str);
+
+    //Delete the old string + padding
+    DeleteBytes(start, RomFSReadStringLength(start));
+    //Make way for the new string
+    InsertBytes(start, pad16(Strlen(s) + 1));
+
+    //write in the new string
+    WriteString(start, s);
+}
+
+typedef struct {
+#ifdef STRICT_CHECKS
+    if(RomFSCheckMagicBytes())
+    {
+        SetBackColor(cLtRed);
+        Printf("Incorrect magic bytes at %xh, expected \"%s\"\n", FTell(), MAGIC_BYTES);
+    }
+    else
+        SetBackColor(cLtGreen);
+#endif
+
+    char magic_bytes[MAGIC_BYTES_LEN] <comment="Magic bytes">;
+    SetBackColor(cNone);
+
+    uint32 fs_size <comment="Filesystem size (in bytes)">;
+#ifdef STRICT_CHECKS
+    //verify the checksum of the superblock (image)
+    if(RomFSSBChecksum(0))
+    {
+        SetBackColor(cLtRed);
+        Printf("Checksum Mismatch on superblock at %xh\n", FTell());
+    }
+    else
+        SetBackColor(cLtGreen);
+#endif
+    int32 checksum <comment="Sum of the first 512 (or all, if the file is smaller) bytes of the file">;
+    SetBackColor(cNone);
+
+    RomFSString vol_name;
+} RomFSHeader;
+
+typedef enum rom_fs_entry_type {
+    HARD_LINK = 0,
+    DIRECTORY = 1,
+    FILE = 2,
+    SYMLINK = 3,
+    BLOCK_DEV = 4,
+    CHAR_DEV = 5,
+    SOCKET = 6,
+    FIFO = 7
+} RomFSEntryType;
+
+typedef int32 RomFSNextHeader <read=ReadNextHeader, write=WriteNextHeader>;
+
+typedef struct {
+    RomFSNextHeader next_header : 28 <name="next_header", comment="Position of the next entry in the directory">;
+    int executable : 1 <name="executable", comment="Whether or not the entry is executable">;    
+    RomFSEntryType type : 3 <name="type", comment="Type of entry">;
+} RomFSObjectHdr <optimize=false, read=ReadRomFSObjectHdr>;
+
+string ReadRomFSObjectHdr(RomFSObjectHdr& hdr)
+{
+    string s;
+    SPrintf(s, "Exec: %d, Next: %s", hdr.executable, ReadNextHeader(hdr.next_header));
+    return s;
+}
+
+string ReadNextHeader(int32 next_header)
+{
+    string s;
+    SPrintf(s, "%d", next_header << 4);
+    return s;
+}
+
+void WriteNextHeader(RomFSNextHeader& v, string s)
+{
+    SScanf(s, "%d", v);
+    v >>= 4;
+}
+
+//some people generate invalid dir entries for . and ..
+//and mess up parsing. ignore them.
+int ValidDirName(string name)
+{
+    return (name != "." && name != "..");
+}
+
+typedef struct {
+    SetBackColor(cLtPurple);
+    RomFSObjectHdr header;
+    SetBackColor(0xB9E2FF);
+    
+    local RomFSEntryType type = header.type;
+    if(type == DIRECTORY)
+        int32 special_info <comment="position of the first file entry">;
+    else if(type == HARD_LINK)
+        int32 special_info <comment="link destination">;
+    else if(type == BLOCK_DEV)
+        int32 special_info <comment="16/16 major/minor number">;
+    else
+        int32 special_info <comment="Must be zero">;
+    int32 data_size <comment="Size of data in bytes (should be 0 except for files and symlinks">;
+
+    local int64 struct_start = startof(this);
+#ifdef STRICT_CHECKS
+    //get the length of the struct (with the filename)
+    local int64 struct_len = 16 + RomFSReadStringLength(struct_start + 16);
+
+    if(RomFSChecksum(struct_start, struct_len, -1))
+    {
+        Printf("Checksum Mismatch on entry at %xh\n", FTell());
+        SetBackColor(cRed);
+    }
+    else
+        SetBackColor(cGreen);
+#endif
+    int32 checksum <comment="Checksum for the entire entry excluding data field">;   
+    SetBackColor(0xE2B9FF);
+    RomFSString name;
+    if(data_size)
+    {
+        SetBackColor(0xFFE2B9);
+        ubyte data[data_size] <comment="File contents or symlink destination">;
+    }
+} RomFSObject <read=ReadRomFSObject, optimize=false>;
+
+//Try to create entries for the subdirectory's children (if it's a directory and it has children)
+void RomFSTryRecurse(RomFSObject& obj)
+{
+    //don't recurse down self-referential or invalid directories
+    if(obj.header.type == DIRECTORY && ValidDirName(obj.name.val) && obj.special_info != startof(obj))
+        Recurse(obj.special_info);
+}
+
+string ReadRomFSObject(RomFSObject& v)
+{
+    string s;
+    string type = EnumToString(v.header.type);
+    SPrintf(s, "%s: %s", type, v.name.val);
+    return s;
+}
+
+RomFSHeader header<optimize=false, comment="Filesystem header">;
+
+
+void Recurse(int64 pos)
+{
+    //while there are still files in the directory
+    while(pos)
+    {
+        FSeek(pos);
+        RomFSObject entry<comment="Filesystem entry">;
+ 
+        //Get the position of the next entry in the current directory
+        pos = entry.header.next_header << 4;
+
+        //Parse all of the children of this entry if it's valid directory
+        RomFSTryRecurse(entry); 
+    }
+}
+
+Recurse(FTell());

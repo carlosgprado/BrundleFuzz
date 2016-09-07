@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block head %}
+{{ super() }}
+    <link rel="stylesheet" href="{{ url_for('static', filename = 'crashes.css') }}">
+    <script src="{{ url_for('static', filename = 'jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename = 'bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename = 'crashes.js') }}"></script>
+{% endblock %}
+
+{% block title %}BrundleFuzz - Crashes{% endblock %}
+
+{% block page_content %}
+<div class="container">
+    <div class="row">
+    <div class="col-md-6">
+    <table class="table table-striped custab">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Node ID</th>
+            <th>Victim Name</th>
+            <th>Cpu</th>
+            <th>Event Name</th>
+            <th>IP</th>
+            <th>Stack Trace</th>
+            <th>Crash Label</th>
+            <th>Exploitable</th>
+            <th>File Name</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for crash in crash_list %}
+            <tr>
+                <td>{{ crash.Id }}</td>
+                <td>{{ crash.NodeId }}</td>
+                <td>{{ crash.Victim }}</td>
+                <td>{{ crash.Cpu }}</td>
+                <td>{{ crash.EventName }}</td>
+                <td>{{ crash.Ip }}</td>
+                <td>{{ crash.StackTrace }}</td>
+                <td>{{ crash.CrashLabel }}</td>
+                <td>{{ crash.Exploitable }}</td>
+                <td><a href="crash_files/{{ crash.FileName }}">{{ crash.FileName }}</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    </div>
+</div>
+{% endblock %}

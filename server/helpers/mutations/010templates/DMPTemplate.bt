@@ -1,0 +1,82 @@
+//--------------------------------------
+//--- 010 Editor v2.0.2 Binary Template
+//
+// File: DMPTemplate.bt
+// Author: <a.schuster@yendor.net>
+// Revision: 1.0 - 20060320
+// Purpose: This template merely serves as documentation of the 
+//           memory dump format used by Microsoft's debuggers and 
+//          the NT kernel crashdump facility. Detailed and 
+//           authorative information about a DMP file can be 
+//          obtained by processing the file with the "dumpchk" 
+//          utility which ships whith Microsoft's free debugging 
+//          tools package.
+//--------------------------------------
+
+
+typedef enum <uint32> {
+	FULL = 1,
+	KERNEL,
+	SMALL
+} e_DumpType;
+
+
+typedef struct {
+	uint32				BasePage <format=hex>;
+	uint32				PageCount <format=hex>;
+} _PHYSICAL_MEMORY_RUN32;
+
+
+typedef struct {
+	uint32				NumberOfRuns;
+	uint32				NumberOfPages <format=hex>;
+	_PHYSICAL_MEMORY_RUN32		Run[NumberOfRuns];
+} _PHYSICAL_MEMORY_DESCRIPTOR32;
+
+
+typedef struct {
+	int32				ExceptionCode <format=hex>;
+	uint32				ExceptionFlags;
+	uint32				ExceptionRecord;
+	uint32				ExceptionAddress <format=hex>;
+	uint32				NumberParameters;
+	uint32				ExceptionInformation[15] <format=hex>;
+} _EXCEPTION_RECORD32;
+
+
+FSeek(0);
+
+char				Signature[4];
+char				ValidDump[4];
+uint32				MajorVersion;
+uint32				MinorVersion;
+uint32				DirectoryTableBase <format=hex>;
+uint32				PfnDataBase <format=hex>;
+uint32				PsLoadedModuleList <format=hex>;
+uint32				PsActiveProcessHead <format=hex>;
+uint32				MachineImageType <format=hex>;
+uint32				NumberProcessors;
+uint32				BugCheckCode <format=hex>;
+uint32				BugCheckParameter[4] <format=hex>;
+char 				VersionUser[32];
+uchar				PaeEnabled;
+uchar				KdSecondaryVersion;
+uchar				Spare3[2];
+uint32				KdDebuggerDataBlock <format=hex>;
+_PHYSICAL_MEMORY_DESCRIPTOR32	PhysicalMemoryBlock;
+FSeek(800);
+uchar				ContextRecord[1200];
+_EXCEPTION_RECORD32		Exception;
+char				Comment[128];
+uchar				_reserved0[1768];
+e_DumpType			DumpType;
+uint32				MiniDumpFields;
+uint32				SecondaryDataState;
+uint32				ProductType;
+uint32				SuiteMask;
+uint32				WriterStatus;
+int64				RequiredDumpSpace;
+uchar				_reserved2[16];
+FILETIME				SystemUpTime;
+FILETIME			SystemTime;
+uchar				_reserved3[56];

@@ -1,0 +1,78 @@
+//------------------------------------
+//--- 010 Editor v2.01 Binary Template
+//
+// Name: EOTTemplate.bt
+// Author: Neo (Jiepeng) Tan
+// Revision: 1.0
+// Purpose: Parse an Embedded OpenType (EOT) File Format for Version: 0x00020002
+// Reference: http://www.w3.org/Submission/EOT/
+//------------------------------------
+
+LittleEndian();
+
+
+typedef enum <DWORD> {TTEMBED_SUBSET = 0x1, 
+TTEMBED_TTCOMPRESSED = 0x4, 
+TTEMBED_FAILIFVARIATIONSIMULATED = 0x10,
+TTMBED_EMBEDEUDC = 0x00000020,
+TTEMBED_VALIDATIONTESTS = 0x00000040,
+TTEMBED_WEBOBJECT = 0x00000080,
+TTEMBED_XORENCRYPTDATA = 0x10000000
+} TTEMBED;
+
+typedef struct embedded_opentype_file {
+    unsigned long  EOTSize;
+    unsigned long  FontDataSize;
+    unsigned long  Version;
+    TTEMBED  Flags;//processing flags #define TTEMBED_TTCOMPRESSED               0x00000004
+    byte FontPANOSE[10];
+    byte Charset;
+    byte Italic;
+    unsigned long Weight;
+    unsigned short fsType;
+    unsigned short MagicNumber<bgcolor=cLtRed>;//Magic number for EOT file - 0x504C
+    unsigned long UnicodeRange1;
+    unsigned long UnicodeRange2;
+    unsigned long UnicodeRange3;
+    unsigned long UnicodeRange4;
+    unsigned long CodePageRange1;
+    unsigned long CodePageRange2;
+    unsigned long CheckSumAdjustment;
+    unsigned long Reserved1;//must be 0
+    unsigned long Reserved2;//must be 0
+    unsigned long Reserved3;//must be 0
+    unsigned long Reserved4;//must be 0
+    unsigned short Padding1;//always 0x0000
+    unsigned short FamilyNameSize;
+    byte FamilyName[FamilyNameSize];
+
+    unsigned short Padding2;//always 0x0000
+    unsigned short StyleNameSize;
+    byte StyleName[StyleNameSize];
+    
+    unsigned short Padding3;//always 0x0000
+    unsigned short VersionNameSize;
+    byte VersionName[VersionNameSize];
+
+    unsigned short Padding4;//always 0x0000
+    unsigned short FullNameSize;
+    byte FullName[FullNameSize];
+
+    unsigned short Padding5;//always 0x0000
+    unsigned short RootStringSize;
+    byte RootString[RootStringSize];
+    unsigned long RootStringCheckSum;
+    unsigned long EUDCCodePage;
+    unsigned short Padding6;
+    unsigned short SignatureSize;
+    byte Signature[SignatureSize];
+    unsigned long EUDCFlags;
+    unsigned long EUDCFontSize;
+    byte EUDCFontData[EUDCFontSize];
+    byte FontData[FontDataSize]<bgcolor=cLtAqua>;
+};
+
+LittleEndian();
+
+FSeek(0);
+embedded_opentype_file EOT;

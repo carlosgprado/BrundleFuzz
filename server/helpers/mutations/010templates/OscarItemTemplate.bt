@@ -1,0 +1,118 @@
+//--------------------------------------
+//--- 010 Editor v5.0.2 Binary Template
+//
+// File:    OscarItemTemplate.bt
+// Author:
+// Revision:1.0
+// Purpose: Template for binary journal 
+//  file used in AppleOne POS.
+//--------------------------------------
+while( !FEof() ){
+	struct RECORD {
+		char type;
+		if (r.type == 'A'){
+			char unused <bgcolor=0xff0000>;
+			short empNum;
+			int ssn;
+			short checkNum;
+			short tableNum;
+			short calcGuestCt;
+			short openTime;
+			short flagDeleted;
+			short unused2;
+			short pullBack;
+			short itemCt;
+			short guestCt;
+			short takeoutTicket;
+			int csiNumber;
+			char junk[22];
+		} else { if (r.type == 'B'){
+			char unused <bgcolor=0xdddd00>;
+			short empNum;
+			int ssn;
+			short itemNum;
+			short deptCat;
+			short priceGrp;
+			int price;
+			int tax1Amt;
+			int tax2Amt;
+			short quantity;
+			short taxStatusAcct;
+			short specUserId;
+			int plu;
+			int managerSsn;
+			short orderTime;
+			byte seatNum;
+			byte priceCode;
+			byte xxExpansion;
+			byte itemType;
+			int reductionCode;
+			int postPrice;
+		} else { if (r.type == 'C' || r.type == 'D'){
+			char unused <bgcolor=0x0000ff>;
+			short empNum;
+			int ssn;
+			short itemNum;
+			short deptCat;
+			short priceGrp;
+			int price;
+			int tax1Amt;
+			int tax2Amt;
+			short quantity;
+			short dupVoidCat;
+			short managerNum;
+			int plu;
+			int managerSsn;
+			short tranTime;
+			byte seatNum;
+			char unused2[3];
+			short voidCatId;
+			char junk[6];
+		} else { if (r.type == 'E'){
+			char unused <bgcolor=0x00dddd>;
+			short empNum;
+			int ssn;
+			char unused2[6];
+			int discAmt;
+			int tax1Amt;
+			int tax2Amt;
+			short quantity;
+			short altDiscCat;
+			short managerNum;
+			char unused3[4];
+			int managerSsn;
+			short discTime;
+			byte seatNum;
+			char unused4[3];
+			short discCatId;
+			char junk[6];
+		} else { if (r.type == 'F'){
+			char unused <bgcolor=0x551a8b>;
+			short empNum;
+			int ssn;
+			short payCatId;
+			int payAmt;
+			int gratuity;
+			int externalId;
+			short status;
+			int acctNum;
+			int acctExHigh;
+			int cashBack;
+			char junk[18];
+		} else { if (r.type == 'K'){
+			char unused <bgcolor=0x00ff00>;
+			short empNum;
+			int ssn;
+			int amount;
+			short closedTime;
+			short origClsTime;
+			int unused2;
+			short dupEmpNum;
+			int unused3;
+			short origCheckNum;
+			char junk[26];
+		} else {
+			char junk[53] <bgcolor=0xaaaaaa>;
+		}}}}}}
+	} r;
+}

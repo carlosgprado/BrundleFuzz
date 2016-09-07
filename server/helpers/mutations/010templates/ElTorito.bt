@@ -1,0 +1,66 @@
+BitfieldRightToLeft();
+BitfieldDisablePadding();
+
+#define BLOCK_SIZE 2048
+#define BOOT_RECORD_OFFSET 2048 * 16
+#define ELTORITO_OFFSET 2048 * 17
+
+typedef struct {
+    ubyte       BootIndicator;
+    char        IsoId[5];
+    ubyte       Version;
+    char        Identifier[32];
+    ubyte       Unused[32];
+    uint32      BootCatalog;
+    ubyte       Unused2[5];
+    uint32      VolSpaceSize[2];
+} BOOT_RECORD_DESC;
+
+typedef union {
+    struct {
+        ubyte   HeaderId;
+        ubyte   PlatformId;
+        uint16  Res0;
+        char    Id[24];
+        uint16  Checksum <format=hex>;
+        uint16  Sig <format=hex>; // 0xaa55
+    } ValEntry;
+    
+    struct {
+        enum <ubyte> { BOOTABLE=0x88, NOT_BOOTABLE=0x0 } BootId <format=hex>;
+        enum <ubyte> { NO_EMULATION=0x0, DISKETTE_1_2=0x1, DISKETTE_1_44=0x2, DISKETTE_2_88=0x3, HARDDISK=0x4 } MediaType <format=hex>;
+        uint16  LoadSegment <format=hex>;
+        ubyte   SystemType;
+        ubyte   Unused;
+        uint16  SectorCount;
+        uint32  LoadLba;
+    } DefaultEntry;
+    
+    struct {
+        enum <ubyte> { NOT_LAST_HEADER=0x90, LAST_HEADER=0x91 } HeaderId <format=hex>;
+        enum <ubyte> { PC_80x86=0x0, POWERPC=0x1, MAC=0x2 } PlatformId <format=hex>;
+        uint16  NumSectionEntries;
+        char    IdString[28];
+    } SecHeader;
+    
+    struct {
+        enum <ubyte> { SECTION_BOOTABLE=0x88, SECTION_NOT_BOOTABLE=0x0 } BootId <format=hex>;
+        enum <ubyte> { SEC_NO_EMULATION=0x0, SEC_DISKETTE_1_2=0x1, SEC_DISKETTE_1_44=0x2, SEC_DISKETTE_2_88=0x3, SEC_HARDDISK=0x4 } MediaType <format=hex>;
+        uint16  LoadSegment <format=hex>;
+        ubyte   SystemType;
+        ubyte   Unused;
+        uint16  SectorCount;
+        uint32  LoadLba;
+        enum <ubyte> { NO_SELECTION_CRITERIA=0x0, LANGUAGE_AND_VERSION=0x1 } SelectionType;
+        ubyte   Criteria[19];
+    } SecEntry;
+    
+} EL_TORITO_ENTRIES;
+
+LittleEndian();
+
+FSeek(ELTORITO_OFFSET);
+BOOT_RECORD_DESC boot_record;
+
+FSeek(boot_record.BootCatalog * BLOCK_SIZE);
+EL_TORITO_ENTRIES el_torito[BLOCK_SIZE / sizeof(EL_TORITO_ENTRIES) - 1];

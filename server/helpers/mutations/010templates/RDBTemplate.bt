@@ -1,0 +1,58 @@
+//-----------------------------------
+//--- 010 Editor v2.0 Binary Template
+//
+// File:     RDBTemplate.bt
+// Author:   AnTler
+// Revision: 1.0
+// Purpose:  Defines a template for parsing RDB files.
+// Changes:  
+
+//-----------------------------------
+
+// Define structures used in RDB files
+
+// Defines a file header
+typedef struct {
+   CHAR	     reserved[16];
+   DWORD   fhFileTotalCount;
+   INT64     fhFileNameOffBits <format=hex>;
+   INT64     fhFileDataOffBits   <format=hex>;
+} RDBFILEHEADER ;
+
+// Defines a file record
+typedef struct {
+   local INT fileNameLength = 0;
+   local USHORT value = 0;
+   do
+   {
+      value = ReadUShort( FTell() + fileNameLength) ;
+      fileNameLength += sizeof(value);
+   } while(value != 0x0000);
+   
+    CHAR frCurFileName[fileNameLength];
+    INT64 frCurFileDataOffBits <format=hex>;
+    INT64 frCurFileDataSize;
+} RDBFILERECORD <read=ReadRDBFILERECORD>;
+
+string ReadRDBFILERECORD( RDBFILERECORD &r )
+{
+   string s;
+   SPrintf( s, "%s", r.frCurFileName);
+   return s;
+}
+
+//--------------------------------------------
+
+// Define the file
+LittleEndian(); 
+
+RDBFILEHEADER rdbFileHeader;
+ 
+FSeek(rdbFileHeader.fhFileNameOffBits);
+ 
+local int i;
+for( i = 0; i < rdbFileHeader.fhFileTotalCount; i++ )
+   RDBFILERECORD rdbFileRecord;
+
+
+

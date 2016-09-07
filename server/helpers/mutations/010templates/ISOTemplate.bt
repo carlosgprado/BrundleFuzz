@@ -1,0 +1,108 @@
+//--------------------------------------
+//--- 010 Editor v5.0 Binary Template
+//
+// File: ISOTemplate.bt
+// Author: Anton Kochkov
+// Revision: 0.1
+// Purpose: Show contents of the ISO headers
+//--------------------------------------
+
+BitfieldRightToLeft();
+BitfieldDisablePadding();
+
+#define BLOCK_SIZE 2048
+#define BOOT_RECORD_OFFSET 2048 * 16
+
+typedef struct _BOOT_RECORD
+{
+    ubyte       BootIndicator;
+    char        IsoId[5];
+    ubyte       Version;
+    char        Identifier[32];
+    ubyte       Unused[32];
+    uint32      BootCatalog;
+    ubyte       Unused2[5];
+    uint32      VolSpaceSize[2];
+} BOOT_RECORD_DESC;
+
+typedef struct {
+    ubyte   VolDescType;
+    byte   StdId[5];
+    ubyte   VolDescVer;
+} VOLUME_DESCRIPTOR_HEADER;
+
+typedef struct {
+    uint32  Year;
+    uint16  Month;
+    uint16  Day;
+    uint16  Hour;
+    uint16  Minute;
+    uint16  Second;
+    uint16  HSecond;
+    byte    Offset;
+} CD_DATE_TIME;
+
+typedef struct {
+    ubyte  Year;
+    ubyte  Month;
+    ubyte  Day;
+    ubyte  Hour;
+    ubyte  Minute;
+    ubyte  Second;
+    byte    Offset;
+} FILE_DATE_TIME;
+
+typedef struct {
+    ubyte   RecordLength;
+    ubyte   ExtAttrRecLength;
+    uint64  StartLba;
+    uint64  DataLength;
+    FILE_DATE_TIME  RecTime;
+    ubyte   Flags;
+    ubyte   FileUnitSize;
+    ubyte   InterleaveGap;
+    uint32  VolSeqNum;
+    ubyte   FileIdLength;
+    ubyte   FileId[1];
+} ROOT_DIR_HEADER;
+
+typedef struct {
+    VOLUME_DESCRIPTOR_HEADER Header;
+    ubyte   Flags;
+    byte   SysId[32];
+    byte   VolId[32];
+    uint64  Unused;
+    uint64  VolSpaceSize;
+    byte   EscSeq[32];
+    uint32  VolSetSize;
+    uint32  VolSeqNum;
+    uint32  LBlockSize;
+    uint64  PathTblSize;
+    uint32  LPathTbl1;
+    uint32  LPathTbl2;
+    uint32  MPathTbl1;
+    uint32  MPathTbl2;
+    ROOT_DIR_HEADER Root;
+    byte   VolSetId[128];
+    byte   PublisherId[128];
+    byte   DataPrepId[128];
+    byte   ApplicationId[128];
+    byte   CopyrightFileId[37];
+    byte   AbstractFileId[37];
+    byte   BiblioFileId[37];
+    CD_DATE_TIME CreationTime;
+    CD_DATE_TIME ModifyTime;
+    CD_DATE_TIME ExpireTime;
+    CD_DATE_TIME EffectiveTime;
+    ubyte   FileStrucVer;
+    ubyte   Unused1;
+} PRIMARY_VOLUME_DESC_HEADER;
+
+LittleEndian();
+FSeek(BOOT_RECORD_OFFSET);
+
+union {
+    BOOT_RECORD_DESC boot_record;
+    PRIMARY_VOLUME_DESC_HEADER primary_volume;
+} disk_header;
+

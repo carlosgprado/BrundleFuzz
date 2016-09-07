@@ -1,0 +1,56 @@
+//--------------------------------------
+//--- 010 Editor v4.0.4 Binary Template
+//
+// File:     OGGTemplate.bt
+// Author:   George Woods
+// Revision: 
+// Purpose:  Parses the ogg container format.
+//--------------------------------------
+
+// ogg files can be quite large. Don't read more the 1000 pages.
+local uint MAXPAGES = 1000;
+
+typedef struct {   // bmfh
+    CHAR    CapturePattern[4];
+    BYTE    Version;
+    BYTE    HeaderType;
+    QUAD    GranulePosition;
+    DWORD   BitstreamSerial;
+    DWORD   PageSequenceNumber;
+    DWORD   Checksum;
+    UBYTE   PageSegments;
+
+    // the lengths of the segments that follow
+    UBYTE   SegmentLen[PageSegments];
+    
+    // the segments themselves
+    local uint i;
+    for (i = 0; i < PageSegments; i++) {
+        struct {
+            BYTE Data[SegmentLen[i]] <bgcolor=cLtGray>;
+        } Segment;
+    }
+} PAGE;
+
+
+LittleEndian(); 
+
+local uint currpage = 0;
+while( !FEof() )
+{
+    currpage++;
+    if (MAXPAGES < currpage) 
+    {
+        Printf("Max Pages of %d reached!\n", maxpages);
+        return 0;
+    }
+
+    PAGE page <bgcolor=cLtBlue>;
+    
+    // Check for valid header
+    if( page.CapturePattern != "OggS" )
+    {
+        Warning( "File is not a valid ogg file. Template stopped." );
+        return -1;
+    }
+}

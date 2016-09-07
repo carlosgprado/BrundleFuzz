@@ -1,0 +1,245 @@
+//-----------------------------------
+//--- 010 Editor v6.0 Binary Template
+//
+// File:     OrCad3.20a_SCH.bt
+// Author:   L. Potjewijd
+// Revision: 1.20
+// Date:     20150531
+// Purpose:  Parsing OrCad 3.20a schematic files
+//-----------------------------------
+
+enum <ubyte> fType  {BLOCK,WORKSHEET};
+enum <ubyte> YesNo  {no,yes};
+enum <ubyte> paper  {OrcadA,OrcadB,OrcadC,OrcadD,OrcadE};
+enum <ubyte> rotate {none,CCW_90,CCW_180,CCW_270};
+enum <ubyte> primT  {dwgDetails,sheet,part,line,bus,junction,modulePort,label,busEntry,dashedLine,powerSymbol,text,EndOfList=0x0f};
+enum <ubyte> IOtype {UNSPEC,OUTPUT,INPUT,BIDIR};
+enum <ubyte> Pstyle {block,pointL,pointR,pointLR};
+enum <ubyte> side   {left,right,top,bottom};
+enum <ubyte> PStype {circle,arrow,bar,wave};
+enum <ubyte> align  {centered,just_left,just_right};
+enum <ubyte> Btype  {downleft,upleft};
+
+typedef byte bit;          // just for readability
+
+typedef struct sText
+{   byte    Length <hidden=true>;
+    if (Length > 0) char String[Length];
+};
+
+typedef struct fTxt (byte fixLen)
+{   byte Length <hidden=true>;
+    if (Length > 0) char String[Length];
+    if ((fixLen > 0) && (fixLen > Length)) char filler[fixLen-Length];
+};
+
+typedef struct Coord
+{   short   X;
+    short   Y;
+};
+
+typedef struct PartField
+{   Coord   Location;
+    sText   Value;
+};
+
+typedef struct IDstring
+{   char    text[14];  // "Schematic FILE"
+    char    terminator[3];   // #13, #10, #26
+};
+
+typedef struct hdrDet
+{   IDstring  head;
+    if (head.text != "Schematic FILE")
+    {   Warning("File is not recognized as an OrCAD schematic file.");
+        return -1;
+    }
+    ubyte       tail[5];
+    int         primitiveSectionLength <format=hex>;
+    Coord       cursor;
+    ushort      zoom;
+};
+
+typedef struct pP00 // TITLEBLOCK
+{   ushort  sheetNumber;
+    ushort  ofSheets;
+    paper   PaperSize;
+    fTxt    DocDate(12);
+    fTxt    DocNumber(36);
+    fTxt    RevNumber(3);
+    fTxt    Title(44);
+    fTxt    Organisation(44);
+    fTxt    AddressLine(44)[4] <optimize=false>; // for readability
+};
+
+typedef struct pP01 // SHEET
+{   local   int i <hidden=true>;
+    Coord   Location;
+    Coord   Size;
+    ubyte   unknown[4];
+    ubyte   Ports;
+    sText   FileName;
+    sText   SheetName;
+    for ( i=0 ; i < Ports ; i++ )
+    struct  PortDef
+    {   short   NameXoffset;
+        short   PortYoffset;
+        IOtype  Type;
+        sText   Name;
+    } Port;
+};
+
+typedef struct pP02 // PART
+{   Coord   Location;
+    Coord   RefDesLocation;
+    Coord   ValueLocation;
+    struct  PartDet1
+    {   ubyte   raw <format=binary>;/*  this is to display   */
+        FSkip (-1);                 /*  the 'raw' bits, too  */
+        BitfieldLeftToRight();
+        YesNo   mirror      : 1;
+        rotate  rotation    : 2;
+        byte    subpackage  : 5;
+    } Details;
+    struct  PartDet2
+    {   BigEndian();                /*************************/
+        ushort  raw <format=binary>;/*  this is to display   */
+        LittleEndian();             /*  the 'raw' bits, too  */
+        FSkip (-2);                 /*************************/
+        BitfieldLeftToRight();
+        bit     bitF        : 1 <hidden=true>;
+        YesNo   XtraFields  : 1;
+        bit     bitD        : 1 <hidden=true>;
+        bit     bitC        : 1 <hidden=true>;
+        bit     bitB        : 1 <hidden=true>;
+        YesNo   HideValue   : 1;
+        YesNo   HideRefDes  : 1;
+        bit     bit8        : 1 <hidden=true>;
+        YesNo   HideField8  : 1;
+        YesNo   HideField7  : 1;
+        YesNo   HideField6  : 1;
+        YesNo   HideField5  : 1;
+        YesNo   HideField4  : 1;
+        YesNo   HideField3  : 1;
+        YesNo   HideField2  : 1;
+        YesNo   HideField1  : 1;
+    } Visibility;
+    ubyte   unknown[13] <format=hex>;
+    sText   RefDes;
+    sText   PartValue;
+    if (Visibility.XtraFields == yes)
+        PartField   Xfield[8] <optimize=false>;
+};
+
+typedef struct pP03 // LINE, BUS or DASHED LINE
+{   Coord   Start;
+    Coord   End;
+};
+
+typedef struct pP05 // JUNCTION
+{   Coord Location;
+};
+
+typedef struct pP06 // MOD_PORT
+{   Coord   Location;
+    struct  PortDet
+    {   ubyte   MinLength;
+        ubyte   raw <format=binary>;//  this is to display   //
+        FSkip (-1);                 //  the 'raw' bits, too  //
+        BitfieldLeftToRight();
+        IOtype  PortType    : 2;
+        Pstyle  PortStyle   : 2;
+        bit     bit3        : 1 <hidden=true>;
+        bit     bit2        : 1 <hidden=true>;
+        bit     bit1        : 1 <hidden=true>;
+        bit     bit0        : 1 <hidden=true>;
+    } Details;
+    sText   PortName   ;
+};
+
+typedef struct pP07 // LABEL or TEXT
+{   Coord   Location;
+    short   rawSize <hidden=true>;
+    local   ushort  Size = Abs(rawSize);
+    local   YesNo   Vertical = (rawSize < 0);
+    sText   Name;
+};
+
+typedef struct pP08 // BUS_ENTRY
+{   Coord   Location;
+    struct  BusDet
+    {   ubyte   raw <format=binary>;//  this is to display   //
+        FSkip (-1);                 //  the 'raw' bits, too  //
+        BitfieldLeftToRight();
+        bit     bit7        : 1 <hidden=true>;
+        bit     bit6        : 1 <hidden=true>;
+        bit     bit5        : 1 <hidden=true>;
+        bit     bit4        : 1 <hidden=true>;
+        bit     bit3        : 1 <hidden=true>;
+        bit     bit2        : 1 <hidden=true>;
+        YesNo   isBusType   : 1;
+        Btype   direction   : 1;
+    } Details;
+};
+
+typedef struct pP0A // PWR_SYM
+{   Coord   Location;
+    struct  PSDet
+    {   ubyte   raw <format=binary>;//  this is to display   //
+        FSkip (-1);                 //  the 'raw' bits, too  //
+        BitfieldLeftToRight();
+        bit     bit7        : 1 <hidden=true>;
+        bit     bit6        : 1 <hidden=true>;
+        bit     bit5        : 1 <hidden=true>;
+        bit     bit4        : 1 <hidden=true>;
+        side    Orientation : 2;
+        PStype  Shape       : 2;
+    } Details;
+    sText   Name;
+};
+
+typedef struct Element    // the actual displayable items
+{   primT   Type <hidden=true>;
+    ushort  DataLength <hidden=true>;
+    switch ( Type )
+    {   case 0x00 : {pP00   TITLE_BLOCK;break;}
+        case 0x01 : {pP01   SHEET;      break;}
+        case 0x02 : {pP02   PART;       break;}
+        case 0x03 : {pP03   LINE;       break;}
+        case 0x04 : {pP03   BUS;        break;}
+        case 0x05 : {pP05   JUNCTION;   break;}
+        case 0x06 : {pP06   MOD_PORT;   break;}
+        case 0x07 : {pP07   LABEL;      break;}
+        case 0x08 : {pP08   BUS_ENTRY;  break;}
+        case 0x09 : {pP03   DASH_LINE;  break;}
+        case 0x0a : {pP0A   PWR_SYM;    break;}
+        case 0x0b : {pP07   TEXT;       break;}
+        case 0x0f : {/* End Of List */  break;}
+        case 0x11 : {pP01   bSHEET;     break;}
+        case 0x12 : {pP02   bPART;      break;}
+        case 0x13 : {pP03   bLINE;      break;}
+        case 0x14 : {pP03   bBUS;       break;}
+        case 0x15 : {pP05   bJUNCTION;  break;}
+        case 0x16 : {pP06   bMOD_PORT;  break;}
+        case 0x17 : {pP07   bLABEL;     break;}
+        case 0x18 : {pP08   bBUS_ENTRY; break;}
+        case 0x19 : {pP03   bDASH_LINE; break;}
+        case 0x1a : {pP0A   bPWR_SYM;   break;}
+        case 0x1b : {pP07   bTEXT;      break;}
+        default   : { Printf ("Unknown primitive: %x, ",Type);
+                      return (-1);
+                    }
+    }
+};
+
+// ***************************************************************************
+
+hdrDet HEADER;
+do
+{   Element primitive;
+}
+while ( primitive.Type != EndOfList );
+
+while ( !FEof() )
+{	sText	part;
+}

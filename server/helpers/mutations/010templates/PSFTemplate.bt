@@ -1,0 +1,220 @@
+ //--------------------------------------
+//--- 010 Editor v2.0.2 Binary Template
+//
+// File:    WSUS PSF file format
+// Author:  Boris Mazic
+// Date:    31 August 2006
+// Abstract:
+// The sets of delta files for any given software update package are
+// stored in a patch storage file (PSF) that is hosted on an
+// HTTP 1.1 server. In addition to delta files based on any number of
+// older, previously released versions of the new files, the PSF also
+// contains compressed copies of the updated files. If a given target
+// computer does not have an old file that matches any of the delta
+// files contained in the PSF, a compressed copy of the updated file
+// is downloaded instead of a delta file. This provides a seamless,
+// fault-tolerant mechanism to ensure that all of the new files can
+// be produced on the target computer regardless of its existing
+// configuration. Because each PSF contains all of the compressed new
+// files and many delta files for each new file, the patch storage
+// files are often quite large. However, because each individual
+// installation downloads only the required set of delta files
+// necessary for that target computer, each installation will
+// download only a small fraction of the entire contents of a PSF.
+//--------------------------------------
+//
+// The name of a PSF file is in the format <SHA-1>.psf, where
+// <SHA-1> part is SHA-1 checksum calculated over the entire contents
+// of the PSF file.
+//
+
+// Defines a PSF file header
+typedef struct {
+    char signature[8];              // "50 53 54 52 45 41 4D 00" = "PSTREAM\0" at offset 0.
+    ushort unknown1<format=hex>;    // 01 00
+    ushort unknown2<format=hex>;    // 01 00
+    uint psf_size_minus_1AFx<format=hex>;
+    uint small_patch_offset<format=hex>;    // The offset of the first patch special structure (21h in size) + some other small sized patches (they are all concatenated one against each other with 4-byte alignement - zero filled padding between the boundaries)
+    uint large_patch_offset<format=hex>;    // The offset of the first larger patch. The offset seems to be a multiple of 4KB (1000h). The larger patches are concatenated one against each other, all starting on 512-byte boundary (zero filled gaps).
+    uint unknown3<format=hex>;      // TODO 8,27h, 2Eh
+    uint num_files;
+    uint offset<format=hex>;        // an offset to the file_info_offsets field in this structure.
+    uint num_offsets<format=hex>;         // 3, 5, 7 - more files bigger number (looks like a count of file info offsets).
+    uint zero1<format=hex>;         // 00 00 00 00
+    uint zero2<format=hex>;         // 00 00 00 00
+    uint random[4]<format=hex>;     // distinct series of random numbers.
+    char description[];
+    uchar zeros[offset-FTell()];        // all zeros.
+    uint file_info_offsets[num_offsets]<format=hex>;  // some of the values look like offsets that point to file info structures located immediately after the PSF header. There's always a values that is an offset to the last file info structure, but its location varies. Not all offsets to file info structures are listed here, but those that are are listed in ascending order, usually interspersed with zero values.
+
+} PSFHeader <read=get_package_name>;
+
+string get_package_name( struct PSFHeader& h )
+{
+    local char s[512];
+    SPrintf(s, "%s", exists(h.name) ? h.name : "");
+    return s;
+
+}
+
+struct FileInfo;
+
+string get_file_name( struct FileInfo& fi )
+{
+    local char s[512];
+    SPrintf(s, "%s pit %Xh, %d patches + 1", exists(fi.name) ? fi.name : "", fi.patch_info_table_offset, fi.num_patches);
+    return s;
+
+}
+
+struct PatchInfo;
+
+string get_patch_info( struct PatchInfo& pi )
+{
+    local char s[512];
+    SPrintf(s, "index %Xh pos %Xh len %Xh", pi.index, pi.position, pi.length);
+    return s;
+
+}
+
+// Start here
+LittleEndian();
+SetBackColor( cYellow );
+PSFHeader header;
+
+// Check for the header signature
+if(0 != Memcmp(header.signature, "PSTREAM\0",
+sizeof(header.signature)))
+{
+    Printf( "File is not a PSF file. Expected PSTREAM header.\n" );
+    return -1;
+
+}
+
+// build FileInfo structures for all (full) files in the PSF archive
+local uint pos = 0;
+local uint size = 0;
+local uint align = 0;
+local uint o = 0;
+local uint offset = 0;
+local uint f = 0;
+local uint p = 0;
+
+for(o = 0; o < header.num_offsets; ++o) {
+    if(header.file_info_offsets[o] == 0)
+                continue;
+        FSeek(header.file_info_offsets[o]);
+
+        for(++f; true; ++f) {
+            SetBackColor(cLtGreen);
+                struct FileInfo {
+                        uchar unknown[3];
+                        uchar name_len<format=hex>; // does not include null terminator
+                        ushort num_patches;         // the first patch info is not in this count (it is some special structure 21h bytes in size)
+                        ushort compression;                     // 3 = delta compression, FF = uncompressed.
+                        uint dependant_file_info_offset<format=hex>;
+                        uint unknown_struct_offset<format=hex>;   // TODO what kind of offset? It point to a structure that is 14h-24h in size and a list of these structures is located immediately after the list of file info and patch info structures.
+                        uint patch_info_table_offset<format=hex>;
+                        char name[name_len];
+
+                        pos = FTell();
+                        align = (pos + 3) & ~3;
+                        if(pos != align) {
+                                uchar padding[align-pos];
+                        }
+
+                        //zero padding
+                        for(size=0, pos = FTell(); ReadUInt(pos) == 0; ++size, pos += 4) {
+                        }
+                        if(size > 0) {
+                                SetBackColor(cSilver);
+                                uint zeros[size];
+                        }
+                } file_info <read=get_file_name>;
+
+                if(file_info.compression != 3) {
+                        Printf( "File %d %s, num_patches %d, compression %X.\n", f-1, file_info.name, file_info.num_patches, file_info.compression);
+                }
+
+                FSeek(file_info.unknown_struct_offset);
+                SetBackColor(f & 1 ? 0x0099ff : 0xff9900);
+                struct Unknown {
+                        uint unknown[5]<format=hex>;    // the structure might take more then 5 quads
+                } unknown;
+
+                // iterate over all patch info structures for the given file (plus the first one which is not a patch but some special structure)
+                FSeek(file_info.patch_info_table_offset);
+                for(p=0; p < file_info.num_patches + 1; ++p) {
+                        SetBackColor(p & 1 ? cLtRed : cLtPurple);
+
+                        struct PatchInfo {
+                                uchar index<format=hex>;    // index of the patch info
+                                uchar unknown[3]<format=hex>;
+                                uint length<format=hex>;
+                                uint position<format=hex>;
+                        } patch_info <read=get_patch_info>;
+                }
+
+                //zero padding
+                for(size=0, pos = FTell(); ReadUInt(pos) == 0; ++size, pos += 4) {
+                }
+                if(size > 0) {
+                        SetBackColor(cSilver);
+                        struct PIPadding {
+                                uint zeros[size];
+                        } pi_padding;
+                }
+
+                if(file_info.dependant_file_info_offset == 0)
+                        break;
+                FSeek(file_info.dependant_file_info_offset);
+        }
+
+}
+
+if(f != header.num_files) {
+        Printf( "Only %d of %d files found.\n", f, header.num_files);
+        return -1;
+
+}
+
+// for each (full) file build a list of Patch structures
+local uint pi = 0;
+for(f = 0; f < header.num_files; ++f) {
+    for(p=0; p < file_info[f].num_patches + 1; ++p, ++pi) {
+        SetBackColor(pi & 1 ? cLtYellow : cLtBlue);
+        FSeek(patch_info[pi].position);
+
+                // Individual patches can be decompressed using apatch.exe utility from
+                // Platform SDK. For the last patch (i.e. complete executable, not really
+                // a patch) use the following syntax:
+                //              apatch xxx.dll.patch empty.dll xxx.dll
+                // where empty.dll is file of size zero bytes.
+        struct Patch {
+            char signature[4];  // "PA19" magic number
+            uchar flag1<format=hex>;        // 02 if this is the last patch (full file) for the given file, 01 otherwise
+            uchar flag2<format=hex>;        // 00
+            uchar flag3<format=hex>;        // E7 if this is the last patch (full file) for the given file, E4 otherwise
+            uchar flag4<format=hex>;        // mostly 00, but sometimes 80
+
+            // the first three quads are the same for every patch of a single file inside the PSF.
+            uint file1<format=hex>;         // 41E5E974h
+            uint file2<format=hex>;         // A7853400h
+            uint file3<format=hex>;         // 01DE9B70h
+            uint patch1<format=hex>;        // different for every patch of a single file inside the PSF.
+            uint patch2<format=hex>;        // (flags) different, but similar for every patch of a single file inside the PSF.
+            if(patch_info[pi].length > 7*4) {
+                uchar unknown[patch_info[pi].length-7*4];
+            }
+        } patch;
+
+        // Check for the signature
+        if(0 != Memcmp(patch.signature, "PA19", sizeof(patch.signature))) {
+            Printf( "Invalid patch signature. Expected 'PA19'. File %d %s, patch info %d (index %d, position %Xh, length %Xh).\n", f, file_info[f].name, pi, patch_info[pi].index, patch_info[pi].position, patch_info[pi].length );
+            //return -1;
+        }
+    }
+
+}
+
+SetBackColor(cNone); 

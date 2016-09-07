@@ -1,0 +1,33 @@
+//-----------------------------------
+//--- 010 Editor v2.0 Binary Template
+//
+// File:     SinclairMicrodriveImage.bt
+// Author:   
+// Revision: 1.0
+// Purpose:  Defines a template for parsing 
+//   images of emulated Sinclair Microdrive
+//   cartridges.
+//-----------------------------------
+
+struct {
+	ubyte HDFLAG[1]; // Value 1, to indicate header block  *See note.
+//	char HDNUMB[1]; // sector number (values 254 down to 1)
+	ubyte HDNUMB[1];
+	ubyte UNUSED[2];	// not used (and of undetermined value)
+	ubyte HDNAME[10];	// microdrive cartridge name (blank padded)
+	ubyte HDCHK[1];	//header checksum (of first 14 bytes)
+
+	ubyte RECFLG[1];	//   - bit 0: always 0 to indicate record block
+			//   - bit 1: set for the EOF block
+			//   - bit 2: reset for a PRINT file
+			//   - bits 3-7: not used (value 0)
+                          
+	ubyte RECNUM[1];	//   data block sequence number (value starts at 0)
+	ubyte RECLEN[2];	//   data block length (<=512, LSB first)
+	ubyte RECNAM[10];	//   filename (blank padded)
+	ubyte DESCHK[1];	//   record descriptor checksum (of previous 14 bytes)
+	ubyte CHDATA[512];	//   data block
+	ubyte DCHK[1];	//     data block checksum (of all 512 bytes of data
+			// block, even when not all bytes are used)
+} MicrodriveSector[254] ;
+	ubyte WriteProtectionFlag[1];

@@ -1,0 +1,197 @@
+//--------------------------------------
+//--- 010 Editor v5.0 Binary Template
+//
+// File: VHD interpretation
+// Author: lurker0ster@gmail.com
+// Revision: V1.0
+// Purpose: Verify what I learn from Microsoft VHD specification.
+//--------------------------------------
+
+
+BigEndian();
+typedef uint64 ULONGLONG;
+
+enum <DWORD> OS {
+  OS_WI2R = 0x57693272,
+  OS_WINDOWS = 0x5769326B,
+  OS_W2RU = 0x57327275,
+  OS_W2KU = 0x57326B75,
+  OS_MACINTOSH = 0x4D616320,
+  OS_MACX = 0x4D163258,
+};
+
+enum <DWORD> DISK {
+  NONE = 0x0,
+  DEPRECATE = 0x1,
+  FIXED = 0x2,
+  DYNAMIC = 0x3,
+  DIFFERENCING = 0x4,
+  DEPRECATE1= 0x5,
+  DEPRECATE2 = 0x6,
+};
+
+typedef struct{
+  char cookie[8]; /* Identifies original creator of the disk */
+  DWORD Features <read=feaRead>;
+  DWORD FileformatVersion;
+  ULONGLONG DataOffset <comment=OffsetCheck>;
+  time_t TimeStamp <read=CorrectTime>;  //This is the number of seconds since January 1, 2000 12:00:00 AM in UTC/GMT
+  char CreaterApplication[4];
+  DWORD CreaterVersion;
+  OS CreaterHostOS;
+  ULONGLONG OrginalSize;
+  ULONGLONG CurrentSize;
+  struct {
+    WORD Cylinder;
+    BYTE Heads;
+    BYTE SectorsPerCylinder;
+  }DiskGeometry;
+  DISK DiskType;
+  DWORD CheckSum <comment="Checksum Of footer">;
+  BYTE UUID[16] ;
+  BYTE SavedState <read=statecheck>;
+  BYTE hidden; //tapdisk-specific field
+  BYTE Reserved[426];
+}FOOTER <size=512, open=true>;
+
+string statecheck(BYTE SavedState ) 
+{
+  if (0x1 == SavedState) return "In saved state";
+  return "not saved";
+}
+
+string feaRead(WORD Features)
+{
+  string s;
+  if (Features & 0x0001)  { s=s+"Temporary, " ;}
+  if (Features & 0x0002)  { s=s+"Reserved, " ;}
+  return s;
+}
+
+string CorrectTime(time_t TimeStamp)
+{
+  /* VHD uses an epoch of 12:00AM, Jan 1, 2000. */ 
+  /* Need to adjust this to the expected epoch of 1970. */ 
+  return TimeTToString((DWORD)TimeStamp + 946684800);
+}
+
+string OffsetCheck(ULONGLONG DataOffset)
+{
+  if((DataOffset & 0xFFFFFFFF) == 0xFFFFFFFF) 
+  {
+    return "Fixed disks";
+  }
+  return "";
+}
+
+typedef struct {
+  char Cookie[8];
+  ULONGLONG DataOffset; //unused
+  ULONGLONG TableOffset; //pointer to BAT
+  DWORD HeaderVersion; 
+  DWORD MaxTableEntries; //number of blocks in the disk
+  DWORD BlockSize <comment=sizecmt>; //does not include the size of block bitmap
+  DWORD Checksum;
+  BYTE  ParentUUID[16]; //for differencing HD
+  time_t ParentTimeStamp<read=CorrectTime>;
+  DWORD reserved;
+  BYTE parentUnicodeName[512];
+  typedef struct {
+    DWORD PlatformCode;
+    DWORD PlatformDataSpace;
+    DWORD PlatformDataLength;
+    DWORD reserved;
+    ULONGLONG PlatformDataOffset;
+  }ENTRY;
+  
+  ENTRY ParentLocatorEntry[8];
+  BYTE reserved1[256];
+}DYNAMICDISKHDEAR <size=1024>;
+
+string sizecmt(DWORD blocksize) 
+{ 
+  string s;
+  SPrintf(s, "block siez:%dMB", blocksize/1024/1024);
+  return s;
+}
+
+
+FOOTER copyOfFooter;
+DYNAMICDISKHDEAR DynamicDiskHeader;
+FSeek(DynamicDiskHeader.TableOffset);
+struct {
+ DWORD entry[DynamicDiskHeader.MaxTableEntries]  <comment=entryCmt>; //1 entry for 4096 sectors (2MB)
+}bat <open=true>; //Block Allocation table
+
+string entryCmt(DWORD entry) 
+{
+  if (0xFFFFFFFF == entry) return "Unused";
+  return "";
+}
+
+
+typedef struct {
+  char magic[8];  //"tdbatmap"
+  ULONGLONG batmap_offset;
+  DWORD batmap_size;
+  DWORD batmap_version;
+  DWORD Checksum;
+}TDBATMAP;
+
+char magic[8];
+
+if (Memcmp(magic, "tdbatmap", 8) == 0) 
+{
+  TDBATMAP batmap;
+}else{
+  FSkip(-8);
+}
+
+
+local int index = 0;
+local int BytesInSector = 512;
+
+local int SectorsPerBlock = DynamicDiskHeader.BlockSize / BytesInSector;
+local int BitmapBytes = SectorsPerBlock / 8;
+//local int ResetBytes = DynamicDiskHeader.BlockSize - BitmapBytes;
+
+//local int numsOfBlockAllocated = (FileSize()-512 - FTell() ) / (DynamicDiskHeader.BlockSize+BitmapBytes);
+typedef struct {
+ BYTE bitmap[BitmapBytes];  //each bit represent a sector. 1: used, 0: full0s.
+ BYTE data[DynamicDiskHeader.BlockSize];
+}DATABLOCK;
+
+//DATABLOCK block[numsOfBlockAllocated];
+
+do{
+ 
+ if (bat.entry[index] != 0xFFFFFFFF) {
+   Printf("Block[%d] -> VHD sector:0x%x", index, bat.entry[index]);
+   Printf(" VHD offset:0x%x\n", bat.entry[index]*512);
+   FSeek(bat.entry[index]*512);
+   DATABLOCK data;
+ }else{
+   //Printf("Block[%d] sparse\n", index);
+ }
+ index ++;
+}while(index < DynamicDiskHeader.MaxTableEntries);
+
+
+FSeek(FileSize()-512);
+FOOTER Footer;
+
+//for demo only 
+//offset is sector offset
+string readData( uint64 offset) 
+{
+  local uint64 BlockIndex = offset/SectorsPerBlock;
+  local uint64 sectorIndex = offset%SectorsPerBlock;
+  
+  local uint64 byteoffset = offset/8;
+  local uint64 bitfield = offset%8;
+  if(bitfield & data[BlockIndex].bitmap[byteoffset]) {
+    //spare
+    Printf("Zeros sector");
+  }
+
+}

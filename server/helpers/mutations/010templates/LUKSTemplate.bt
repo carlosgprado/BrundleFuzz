@@ -1,0 +1,75 @@
+//--------------------------------------
+//--- 010 Editor v4.0.1 Binary Template
+//
+// File:     LUKS.bt
+// Author:   Daniel Correa
+// URL:      http://www.sinfocol.org/
+// Revision: 1.0
+// Purpose:  Template for LUKS
+//--------------------------------------
+
+#define LUKS_CIPHERNAME_L 32
+#define LUKS_CIPHERMODE_L 32
+#define LUKS_HASHSPEC_L 32
+#define LUKS_DIGESTSIZE 20
+#define LUKS_HMACSIZE 32
+#define LUKS_SALTSIZE 32
+#define LUKS_NUMKEYS 8
+
+#define LUKS_MKD_ITERATIONS_MIN  1000
+#define LUKS_SLOT_ITERATIONS_MIN 1000
+
+#define LUKS_KEY_DISABLED_OLD 0
+#define LUKS_KEY_ENABLED_OLD 0xCAFE
+
+#define LUKS_KEY_DISABLED 0x0000DEAD
+#define LUKS_KEY_ENABLED  0x00AC71F3
+
+#define LUKS_STRIPES 4000
+
+#define LUKS_MAGIC "LUKS\xBA\xBE"
+#define LUKS_MAGIC_L 6
+
+#define LUKS_PHDR_SIZE (sizeof(struct luks_phdr)/SECTOR_SIZE+1)
+
+#define UUID_STRING_L 40
+
+#define LUKS_ALIGN_KEYSLOTS 4096
+
+
+typedef struct luks_phdr {
+    char magic[LUKS_MAGIC_L] <bgcolor=0xaabbcc>;
+
+    if (magic != LUKS_MAGIC) {
+        SetBackColor(0x0000ff);
+        Warning("File is not a LUKS disk. Bad signature.");
+        return -1;
+    }
+
+    uint16 version <bgcolor=0xccddee>;
+    char cipherName[LUKS_CIPHERNAME_L] <bgcolor=0x00ffee>;
+    char cipherMode[LUKS_CIPHERMODE_L] <bgcolor=0xffbbee>;
+    char hashSpec[LUKS_HASHSPEC_L] <bgcolor=0x339922>;
+    uint32 payloadOffset <bgcolor=0x3399ee>;
+    uint32 keyBytes <bgcolor=0x886633>;
+    char mkDigest[LUKS_DIGESTSIZE] <bgcolor=0x999999, format=hex>;
+    char mkDigestSalt[LUKS_SALTSIZE] <bgcolor=0xaa9933>;
+    uint32 mkDigestIterations <bgcolor=0x44ee88>;
+    char uuid[UUID_STRING_L] <bgcolor=0xeeff77>;
+
+    struct {
+        uint32 active <bgcolor=0x4444ff>;
+
+        uint32 passwordIterations <bgcolor=0xff7777>;
+        char passwordSalt[LUKS_SALTSIZE] <bgcolor=0x77ff77>;
+        
+        uint32 keyMaterialOffset <bgcolor=0xffaabb>;
+        uint32 stripes <bgcolor=0xbbaadd>;
+    } keyblock[LUKS_NUMKEYS];
+
+    char _padding[432];
+};
+
+FSeek(0);
+BigEndian();
+luks_phdr LUKS;

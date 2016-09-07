@@ -1,0 +1,92 @@
+//-----------------------------------
+//--- 010 Editor v3.0 Binary Template
+//
+// File:     FLVTemplate.bt
+// Author:   lafei(indep@263.net)
+// Revision: 2.1
+// Purpose:  Defines a template for
+//    parsing FLV files.
+//-----------------------------------
+
+// Define structures used in FLV files
+
+typedef struct {
+    CHAR    signature[3];	//"FLV"
+    UBYTE   version;
+    UBYTE   dummy : 5;
+    UBYTE   audio : 1;		//1 if audio present
+    UBYTE   dummy2 : 1;
+    UBYTE   video : 1;		//1 if video present
+    DWORD   dataoffset;		//in abs. file offset
+    DWORD   zero;		//previous tag size
+} HEADER;
+
+local UINT taglen;
+
+typedef struct {
+    UINT    type : 8;
+    UINT    datasize : 24;
+    UINT    timestamp : 24;
+    UINT    timestamphi : 8;
+    UINT    streamid : 24;
+    taglen = datasize - 1;
+    Printf("tag length: %x\n",taglen);
+    if(type==8)	//audio
+    {
+        UINT fmt : 4;
+        UINT sr : 2;
+        UINT bits : 1;
+        UINT channels : 1;
+        if(fmt==10)
+        {
+            --taglen;
+            UBYTE frmtype;
+        }
+    }
+    else if(type==9)//video
+    {
+        UINT frmtype : 4;
+        UINT codecid : 4;
+        if(codecid==7)
+        {
+            taglen -= 4;
+            UINT pkttype : 8;
+            UINT compotime : 24;
+        }
+    }
+    else if(type==18)//script
+    {
+        UINT fristbyte : 8;
+    }
+    UBYTE data[taglen];
+    UINT lastsize;	//last tag size
+
+    //for debugging
+    //Printf("lastsize: %x\n",lastsize);
+    //Printf("Pos: %x\n",FTell());
+} Tag;
+
+BigEndian();
+SetBackColor( cLtGray );
+HEADER hdr;
+
+// Check for header
+if( hdr.signature != "FLV" )
+{
+    Warning( "File is not a FLV. Template stopped." );
+    return -1;
+}
+
+if( hdr.version != 1 )
+{
+    Warning( "Unsupported FLV version. Template stopped." );
+    return -1;
+}
+
+// Define the bytes of the data
+SetBackColor( cNone );
+
+while( !FEof() )
+{
+    Tag tag;
+}

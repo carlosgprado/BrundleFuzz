@@ -1,0 +1,714 @@
+//-----------------------------------
+//--- 010 Editor v4.0 Binary Template
+//
+// File:     MOBITemplate.bt
+// Author:   David W. Deley
+// Revision: 2.2
+// Purpose:  Defines a template for
+//    parsing MOBI ebook files.
+//-----------------------------------
+
+// Define structures used in MOBI files
+
+typedef struct {    // Record Info ri
+    DWORD   dataOffset;
+    UBYTE   attributeBits;
+    UBYTE   uid1;
+    WORD    uid2;
+} ri;
+
+void checkpdfheader()
+{
+  // Check for correct header
+  if ( ( type != "BOOK" || creator != "MOBI")
+     &&( type != "TEXt" || creator != "REAd") )
+  {
+      Warning( "File is not BOOKMOBI or TEXtREAd. Template stopped." );
+      return -1;
+  }
+}
+
+typedef struct {   // Palm Database Format header pdf
+    CHAR    name[32];
+    WORD    attributeBits;
+    WORD    version;
+    DWORD   creationDate;
+    DWORD   modificationDate;
+    DWORD   lastBackupDate;
+    DWORD   modificationNumber;
+    DWORD   appInfoID;
+    DWORD   sortInfoID;
+    CHAR    type[4];
+    CHAR    creator[4];
+    checkpdfheader();
+    DWORD   uniqueIDseed;
+    DWORD   nextRecordListID;
+    WORD    numberOfRecords;
+    //read record pointers
+    SetBackColor( cWhite );
+    struct {    // Record Pointer
+        DWORD   dataOffset;
+        UBYTE   attributeBits;
+        UBYTE   uid1;
+        WORD    uid2;
+    } recptr[pdf.numberOfRecords];
+} PalmDatabaseFormat;
+
+enum <ushort> eCompression {
+    NoCompression = 1,
+    PalmDOC = 2,
+    HUFFCDIC = 17480
+};
+
+enum <ushort> encryptionType {
+    NoEncryption = 0,
+    OldMobipocketEncryption = 1,
+    MobipocketEncryption = 2
+};
+
+enum <ushort> TextEncoding {
+    CP1252_WinLatin1 = 1252,
+    UTF8 = 65001
+};
+
+enum <uint> MobiType {
+    MobipocketBook =   2,
+    PalmDOCbook=       3,
+    Audio=             4,
+    News=            257,
+    NewsFeed=        258,
+    NewsMagazine=    259,
+    PICS=            513,
+    Word=            514,
+    XLS=             515,
+    PPT=             516,
+    TEXT=            517,
+    HTML=            518
+};
+
+
+typedef struct {   // PalmDOC Header pdh
+    eCompression compression;
+    WORD    unused;
+    DWORD   textLength;
+    WORD    numPDBrecords;
+    WORD    recMaxSize;
+    encryptionType encryption;
+    Assert( encryption == 0, "File encrypted. Abort." );
+    WORD    unknown1;
+} PalmDOCheader;
+
+typedef enum <uint32> eMBHflags {
+  multibyte =  0x0001,   // Declared public; may be accessed from outside its package.
+  trailers =   0x0002
+} MBHflags <read=readMBHflags>;
+
+string readMBHflags (local MBHflags &flags) {
+  local string s = "";
+  local int commaNeeded = 0;
+  local MBHflags i = 1;
+
+  SPrintf (s, "%x: ", flags);
+
+  // Iterate over all possible values the flags
+  // if the given bit is set, add it's text representation to the
+  // return string.
+  // NOTE: There's probably a better way to do this. (More portable?)
+  while (i <= 2) {
+    if (flags && i) {
+      if (commaNeeded) { s += ", "; }
+      s += EnumToString(i);
+      commaNeeded = 1;
+    }
+    i = i << 1;
+  }
+  return s;
+}
+
+//MOBI Header
+typedef struct {
+    CHAR    identifier[4] <comment="continuation of Palm DOC Header">; //MOBI
+    DWORD   headerLength;
+    MobiType mobiType;
+    WORD    cryptoType;
+    TextEncoding textEncoding <comment="codepage">;
+    DWORD   uniqueID;
+    DWORD   MOBIversion;
+    DWORD   orthographicIndex <format=hex>;
+    DWORD   inflectionIndex <format=hex>;
+    DWORD   indexNames <format=hex>;
+    DWORD   indexKeys <format=hex>;
+    DWORD   extraIndex0 <format=hex>;
+    DWORD   extraIndex1 <format=hex>;
+    DWORD   extraIndex2 <format=hex>;
+    DWORD   extraIndex3 <format=hex>;
+    DWORD   extraIndex4 <format=hex>;
+    DWORD   extraIndex5 <format=hex>;
+    DWORD   firstNonBookIndex <format=hex>;  //?
+    DWORD   fullNameOffset <comment="Book Title">;
+    DWORD   fullNameLength <comment="Book Title Length">;
+    DWORD   locale;
+    DWORD   inputLanguage;
+    DWORD   outputLanguage;
+    DWORD   minVersion;
+    DWORD   firstImageIndex;
+    DWORD   huffmanRecordOffset;
+    DWORD   huffmanRecordCount;
+    DWORD   huffmanTableOffset;
+    DWORD   huffmanTableLength;
+    DWORD   EXTHflags;
+    CHAR    unknown2[32];
+    DWORD   DRMoffset;
+    DWORD   DRMcount<format=hex>;
+    DWORD   DRMsize<format=hex>;
+    DWORD   DRMflags;
+    CHAR    unknown3[12];
+    WORD    FirstContentRecNo;
+    WORD    LastContentRecNo;
+    DWORD   unknown4;
+    DWORD   FCISrecNo;
+    DWORD   unknown5;
+    DWORD   FLISrecNo;
+    DWORD   unknown6;
+    QWORD   unknown7;
+    DWORD   unknown8;
+    DWORD   unknown9;
+    DWORD   unknown10;
+    DWORD   unknown11;
+    MBHflags mbhflags;  //A set of binary flags, some of which indicate extra data at the end of each text block. This only seems to be valid for Mobipocket format version 5 and 6 (and higher?), when the header length is 228 (0xE4) or 232 (0xE8).
+    DWORD   INDXrecordOffset;
+} MobiHeader;
+
+
+enum <ubyte> TextToSpeach {
+    TextToSpeechEnabled = 0,
+    TextToSpeechDisabled = 1
+};
+
+enum <DWORD> CreatorSoftware {
+        mobigen = 1,
+        MobipocketCreator = 2,
+        kindlegen_Windows = 200,
+        kindlegen_Linux = 201,
+        kindlegen_Mac = 202
+};
+
+typedef struct {
+    enum <DWORD> EXTHrecordType {
+        Drm_Server_Id =            1,
+        Drm_Commerce_Id =          2,
+        Drm_Ebookbase_Book_Id =    3,
+        Creator =                100,
+        Publisher =              101,
+        Imprint =                102,
+        Description =            103,
+        ISBN =                   104,
+        Subject =                105,
+        Published =              106,
+        Review =                 107,
+        Contributor =            108,
+        Rights =                 109,
+        SubjectCode =            110,
+        Type =                   111,
+        Source =                 112,
+        ASIN =                   113,
+        VersionNumber =          114,
+        Sample =                 115,
+        StartReading =           116,
+        Adult =                  117,
+        Price =                  118,
+        Currency =               119,
+        K8_Boundary_Section =    121,
+        fixed_layout =           122,
+        book_type =              123,
+        orientation_lock =       124,
+        K8_Count_of_Resources_Fonts_Images = 125,
+        original_resolution =    126,
+        K8_Cover_Image =         129,
+        K8_Unidentified_Count  = 131,
+        RegionMagnification =    132,
+        DictShortName =          200,
+        CoverOffset =            201,
+        ThumbOffset =            202,
+        HasFakeCover =           203,
+        CreatorSoftwareRecord =  204,
+        CreatorMajorVersion =    205,
+        CreatorMinorVersion =    206,
+        CreatorBuildNumber =     207,
+        Watermark =              208,
+        Tamper_proof_keys =      209,
+        FontSignature =          300,
+        ClippingLimit =          401,
+        PublisherLimit =         402,
+        TextToSpeachFlag =       404,
+        CDE_Type =               501,
+        last_update_time =       502,
+        Updated_Title =          503
+		/*      Long Title
+		//      # Amazon seems to regard this as the definitive book title
+                # rather than the title from the PDB header. In fact when
+                # sending MOBI files through Amazon's email service if the
+                # title contains non ASCII chars or non filename safe chars
+                # they are messed up in the PDB header
+		*/
+    } recordType;
+    DWORD  recordLength;
+    switch (recordType) {
+      case   1 :  //Drm_Server_Id :
+        UBYTE  Drm_Server_Id[recordLength-8];
+        break;
+      case   2 :  //Drm_Commerce_Id :
+        UBYTE  Drm_Commerce_Id[recordLength-8];
+        break;
+      case   3 :  //Drm_Ebookbase_Book_Id  :
+        UBYTE  Drm_Ebookbase_Book_Id[recordLength-8];
+        break;
+      case 100 :  //Creator (author) : <dc:Creator>
+        UBYTE  creator[recordLength-8];
+        break;
+      case 101 :  //Publisher  : <dc:Publisher>
+        UBYTE  publisher[recordLength-8];
+        break;
+      case 102 :  //Imprint  : <Imprint>
+        UBYTE  imprint[recordLength-8];
+        break;
+      case 103 :  //Description  : <dc:Description>
+        UBYTE  description[recordLength-8];
+        break;
+      case 104 :  //ISBN  : <dc:Identifier scheme='ISBN'>
+        UBYTE  ISBN[recordLength-8];
+        break;
+      case 105 :  //Subject  : <dc:Subject>
+        UBYTE  subject[recordLength-8];
+        break;
+      case 106 :  //PublishingDate  : <dc:Date>
+        UBYTE  publishingDate[recordLength-8];
+        break;
+      case 107 :  //Review  : <Review>
+        UBYTE  review[recordLength-8];
+        break;
+      case 108 :  //Contributor  : <dc:Contributor>
+        UBYTE  contributor[recordLength-8];
+        break;
+      case 109 :  //Rights  : <dc:Rights>
+        UBYTE  rights[recordLength-8];
+        break;
+      case 110 :  //SubjectCode  : <dc:Subject BASICCode="subjectcode">
+        UBYTE  subjectCode[recordLength-8];
+        break;
+      case 111 :  //Type  : <dc:Type>
+        UBYTE  type[recordLength-8];
+        break;
+      case 112 :  //Source  : <dc:Source>
+        UBYTE  source[recordLength-8];
+        break;
+      case 113 :  //ASIN  :
+        UBYTE  ASIN[recordLength-8];
+        break;
+      case 114 :  //'versionnumber',
+        UBYTE  versionNumber[recordLength-8];
+        break;
+      case 115 :  //'sample'. 0x0001 if the book content is only a sample of the full book
+        Assert( recordLength == 12, "sample recordLength-8 != 4 (DWORD)." );
+        DWORD  sample;
+        break;
+      case 116 :  //'startreading', 'StartOffset' Position (4-byte offset) in file at which to open when first opened
+        UBYTE  startReading[recordLength-8];
+        break;
+      case 117 :  //Adult  : <Adult>
+        UBYTE  adult[recordLength-8];
+        break;
+      case 118 :  //Price  'retailprice': <SRP>
+        UBYTE  price[recordLength-8];
+        break;
+      case 119 :  //Currency  'retailPriceCurrency': <SRP Currency="currency">
+        UBYTE  currency[recordLength-8];
+        break;
+      case 121 :  //K8_Boundary_Section =    121,
+      case 122 :  //  fixed_layout =           122,
+      case 123 :  //  book_type =              123,
+      case 124 :  //  orientation_lock =       124,
+      case 125 :  //  K8_Count_of_Resources_Fonts_Images = 125,
+      case 126 :  //  original_resolution =    126,
+      case 129 :  //  K8_Cover_Image =         129,
+      case 131 :  //  K8_Unidentified_Count  = 131,
+      case 132 :  //  RegionMagnification =    132,
+	    UBYTE  unknown[recordLength-8];
+        break;
+
+	  case 200 :  //DictShortName  : <DictionaryVeryShortName>
+        UBYTE  dictShortName[recordLength-8];
+        break;
+      case 201 :  //'coveroffset', <EmbeddedCover>. Add to first image field in Mobi Header to find PDB record containing the cover image
+        Assert( recordLength == 12, "coverOffset recordLength-8 != 4 (DWORD)." );
+        DWORD  coverOffset;
+        break;
+      case 202 :  //'thumboffset',
+        Assert( recordLength == 12, "thumbOffset recordLength-8 != 4 (DWORD)." );
+        DWORD  thumbOffset;
+        break;
+      case 203 :  //'hasfakecover',
+        UBYTE  hasFakeCover[recordLength-8];
+        break;
+      case 204 :  //'Creator Software'. Known Values: 1=mobigen, 2=Mobipocket Creator, 200=kindlegen (Windows), 201=kindlegen (Linux), 202=kindlegen (Mac).
+        Assert( recordLength == 12, "creatorSoftware recordLength-8 != 4 (DWORD)." );
+        CreatorSoftware creatorSoftware;
+        break;
+      case 205 :  //'Creator Major Version', # '>I'
+        Assert( recordLength == 12, "creatorMajorVersion recordLength-8 != 4 (DWORD)." );
+        DWORD  creatorMajorVersion;
+        break;
+      case 206 :  //'Creator Minor Version', # '>I'
+        Assert( recordLength == 12, "creatorMinorVersion recordLength-8 != 4 (DWORD)." );
+        DWORD  creatorMinorVersion;
+        break;
+      case 207 :  //'Creator Build Number', # '>I'
+        Assert( recordLength == 12, "creatorBuildNumber recordLength-8 != 4. (DWORD)" );
+        DWORD  creatorBuildNumber;
+        break;
+      case 208 :  //Watermark  :
+        UBYTE  watermark[recordLength-8];
+        break;
+      case 209 :  //'tamper_proof_keys'. Used by the Kindle (and Android app) for generating book-specific PIDs.
+        UBYTE  tamper_proof_keys[recordLength-8];
+        break;
+      case 300 :  //'fontsignature',
+        UBYTE  fontSignature[recordLength-8];
+        break;
+      case 301 :  //'clippinglimit', # percentage '>B' Integer percentage of the text allowed to be clipped. Usually 10.
+        UBYTE  clippingLimit[recordLength-8];
+        break;
+      case 402 :  //'publisherlimit',
+        UBYTE  publisherLimit[recordLength-8];
+        break;
+      case 404 :  //'TTS flag', # '>B' 1 - TTS disabled 0 - TTS enabled 1 - Text to Speech disabled; 0 - Text to Speech enabled
+        Assert( recordLength == 9, "TextToSpeach recordLength-8 != 1 (BYTE)." );
+        TextToSpeach textToSpeach;
+        break;
+      case 501 :  //CDE Type  : PDOC - Personal Doc; EBOK - ebook; EBSP - ebook sample;
+        Assert( recordLength == 12, "CDEtype recordLength-8 != 1. (DWORD)" );
+        CHAR CDEtype[4];
+        break;
+      case 502 :  //'lastupdatetime',
+        UBYTE  lastUpdateTime[recordLength-8];
+        break;
+      case 503 :  //Updated Title  :
+        UBYTE  updatedTitle[recordLength-8];
+        break;
+      case 504 :  //ASIN (copy)?
+        UBYTE  ASINcopy[recordLength-8];
+        break;
+      case 524 :  //language from <dc:language>
+        UBYTE  dclanguage[recordLength-8];
+        break;
+      default :
+        UBYTE  unknown[recordLength-8];
+        break;
+    }
+} EXTHrecord;
+
+typedef struct {   //EXTH Header
+    CHAR    identifier[4]; //EXTH
+    DWORD   headerLength;
+    UINT    recordCount;
+    local int i = 0;
+    for ( i = 0; i < recordCount; i++) {
+      EXTHrecord exthrecord;
+    }
+} ExthHeader;
+
+typedef struct {   // FLIS RECORD
+    UINT   ID <comment="FLIS">;
+    UINT   fixed1  <comment="fixed value 8">;
+    USHORT fixed2  <comment="fixed value 65">;
+    USHORT fixed3  <comment="fixed value 0">;
+    UINT   fixed4  <comment="fixed value 0">;
+    UINT   fixed5  <comment="fixed value -1">;
+    USHORT fixed6  <comment="fixed value 1">;
+    USHORT fixed7  <comment="fixed value 3">;
+    UINT   fixed8  <comment="fixed value 3">;
+    UINT   fixed9  <comment="fixed value 1">;
+    UINT   fixed10 <comment="fixed value -1">;
+} FLISRECORD;
+
+
+typedef struct {   // FDST RECORD for (KF8) format
+    UINT   ID <comment="FDST">;
+    UINT   FDSTstart <comment="FDST start">;
+    UINT   fdstcnt <comment="Number of records inside FDST">;
+       struct {
+          UBYTE record[ reclen - 12];
+       } fdst;
+} FDSTkf8RECORD;
+
+typedef struct {   // FCIS RECORD
+    UINT   ID <comment="FCIS">;
+    UINT   fixed1  <comment="fixed value 20">;
+    UINT   fixed2  <comment="fixed value 16">;
+    UINT   fixed3  <comment="fixed value 1">;
+    UINT   fixed4  <comment="fixed value 0">;
+    UINT   fixed5  <comment="text length (the same value as \"text length\" in the PalmDoc header)">;
+    UINT   fixed6  <comment="fixed value 0">;
+    UINT   fixed7  <comment="fixed value 32">;
+    UINT   fixed8  <comment="fixed value 8">;
+    USHORT fixed9  <comment="fixed value 1">;
+    USHORT fixed10 <comment="fixed value 1">;
+    UINT   fixed11 <comment="fixed value 0">;
+} FCISRECORD;
+
+typedef struct {   // SRCS RECORD
+    UINT   ID <comment="SRCS">;
+       struct {
+          UBYTE record[ reclen - 4];
+       } srcs;
+} SRCSRECORD;
+
+typedef struct {   // DATP RECORD
+    UINT   ID <comment="DATP">;
+       struct {
+          UBYTE record[ reclen - 4];
+       } datp;
+} DATPRECORD;
+
+typedef struct {
+    QUAD   ID <comment="BOUNDARY">;
+} BOUNDARYRECORD;
+
+typedef struct {   // HTML RECORD
+       struct {
+          UBYTE b[ reclen ];
+       } html;
+} HTML;
+
+typedef struct {   // INDX RECORD
+    UINT   ID <comment="INDX">;
+    UINT   headerLength <comment="">;
+    UINT   indexType <comment="">;
+    UINT   unknown1 <comment="">;
+    UINT   unknown2 <comment="">;
+    UINT   idxtStart <comment="offset to the IDXT section">;
+    UINT   indexEncoding ;
+    UINT   indexLanguage <comment="language code of the index">;
+    UINT   totalIndexCount <comment="number of index entries">;
+    UINT   ordtStart <comment="offset to the ORDT section">;
+    UINT   ligtStart <comment="offset to the LIGT section">;
+    UINT   unknown3;
+    UINT   unknown4;
+} INDXRECORD;
+
+typedef struct {   // end-of-file
+    UBYTE  fixed1  <comment="fixed value 233 (0xE9)">;
+    UBYTE  fixed2  <comment="fixed value 142 (0x8E)">;
+    UBYTE  fixed3  <comment="fixed value 13 (0x0D)">;
+    UBYTE  fixed4  <comment="fixed value 10 (0x0A)">;
+} ENDRECORD;
+
+
+//---------------------------------------------
+
+// Define the headers
+BigEndian();
+SetBackColor( cLtGray );
+PalmDatabaseFormat pdf;
+
+//record 0 is PalmDOC Header
+FSeek(pdf.recptr[0].dataOffset);
+SetBackColor( cLtGray );
+PalmDOCheader pdh;
+MobiHeader mbh;
+local char fullName[255];
+local char KF8fullName[255];
+//local int outFile = FileNew();
+local int reclen;
+local int i, n;
+local int endrec;
+local char tag[9];
+
+if (mbh.fullNameOffset != 0)
+{
+  //get full name
+  FSeek(pdf.recptr[0].dataOffset + mbh.fullNameOffset);
+  ReadBytes(fullName, FTell(), mbh.fullNameLength);
+  fullName[mbh.fullNameLength] = '\0';
+//  FPrintf(outFile, "fullName=%s\n", fullName);
+}
+
+if (mbh.EXTHflags & 0x40)
+{
+  //find EXTH record
+  FSeek(pdf.recptr[0].dataOffset + 16 + mbh.headerLength); //16 for the PalmDOCheader
+  SetBackColor( cYellow );
+  ExthHeader exth;
+}
+
+local uint multibyte = 0;
+local uint trailers = 0;
+if ( pdf.type == "BOOK" && pdf.creator == "MOBI")
+{
+   if ((mbh.headerLength >= 0xE4) && (pdf.version >= 5))
+   {
+     multibyte = flags & 1;
+     while (flags > 1)
+     {
+       if (flags & 2)
+       {
+         ++trailers;
+         flags = flags >> 1;
+       }
+     }
+   }
+}
+
+
+for( i = 0; i < pdf.numberOfRecords - 1; i++ )
+{
+   FSeek(pdf.recptr[i].dataOffset);
+   reclen = ( pdf.recptr[i+1].dataOffset - pdf.recptr[i].dataOffset );
+//   FPrintf(outFile, "i=%d, reclen=%d\n", i, reclen);
+   ReadBytes(tag, FTell(), 8);
+   tag[8] = '\0';
+
+//   FPrintf(outFile, "tag=%s\n", tag );
+   // Parse data depending upon tag
+   if( Memcmp(tag,"FLIS",4) == 0) //FLIS
+   {
+       SetBackColor( cLtGray );
+       FLISRECORD data;
+   }
+   else if( Memcmp(tag,"FDST",4) == 0) //FDST
+   {
+       SetBackColor( cLtGray );
+       FDSTkf8RECORD data;
+   }
+   else if( Memcmp(tag,"FCIS",4) == 0 ) //FCIS
+   {
+       SetBackColor( cLtGreen );
+       FCISRECORD data;
+       if (data.fixed1 < 0x10)
+       {
+//         FPrintf(outFile, "0");
+       }
+//       FPrintf(outFile, "%X ", data.fixed1);
+//       FPrintf(outFile, "\n");
+   }
+   else if( Memcmp(tag,"SRCS",4) == 0 ) //SRCS
+   {
+       SetBackColor( cLtRed );
+       SRCSRECORD data;
+   }
+   else if( Memcmp(tag,"DATP",4) == 0 ) //DATP
+   {
+       SetBackColor( cLtBlue );
+       DATPRECORD data;
+       for (n = 0; n < reclen-4; n++)
+       {
+         if (data.datp.record[n] < 0x10)
+         {
+//           FPrintf(outFile, "0");
+         }
+//         FPrintf(outFile, "%X ", data.datp.record[n]);
+       }
+//       FPrintf(outFile, "\n");
+   }
+   else if( Memcmp(tag,"INDX",4) == 0 ) //INDX
+   {
+       SetBackColor( cSilver );
+       INDXRECORD data;
+   }
+   else if(Memcmp(tag,"BOUNDARY",8) == 0 ) //BOUNDARY (check record length is 8 bytes)
+   {
+       SetBackColor( cYellow );
+       BOUNDARYRECORD data;
+       //record following BOUNDARY is another PalmDOC Header for KF8
+       SetBackColor( cLtGray );
+       i++;
+       PalmDOCheader data;
+       MobiHeader KF8mbh;
+       if (KF8mbh.fullNameOffset != 0)
+       {
+         //get full name
+         FSeek(pdf.recptr[i].dataOffset + KF8mbh.fullNameOffset);
+         ReadBytes(KF8fullName, FTell(), KF8mbh.fullNameLength);
+         fullName[KF8mbh.fullNameLength] = '\0';
+//         FPrintf(outFile, "KF8fullName=%s\n", fullName);
+       }
+       if (KF8mbh.EXTHflags & 0x40)
+       {
+         //find EXTH record
+//         FPrintf(outFile, "KF8EXTH present\n");
+         FSeek(pdf.recptr[i].dataOffset + 16 + KF8mbh.headerLength); //16 for the PalmDOCheader
+         SetBackColor( cYellow );
+         ExthHeader KF8exth;
+       }
+   }
+   else if( Memcmp(tag,"<html>",6) == 0 )
+   {
+       SetBackColor( cLtGreen );
+       HTML data;
+   }
+   else if( Memcmp(tag,"<!DOCTYP",8) == 0 )
+   {
+       SetBackColor( cLtGreen );
+       HTML data;
+   }
+   else
+   {
+       SetBackColor( cLtGray );
+       struct {
+          UBYTE unknown[ reclen ] ;
+       } data;
+   }
+}
+//and the very last record is the rest of the file
+endrec = ReadUInt( FTell() );
+//FPrintf(outFile, "endrec=%X\n", endrec );
+if( endrec == 0xE98E0D0A ) //end record
+{
+       SetBackColor( cLtGreen );
+       ENDRECORD data;
+}
+
+
+/*
+local int x;
+x = pdf.numberOfRecords;
+
+typedef struct {
+    UBYTE rec[10];
+} PDFREC <read=ReadPDFrec>;
+string ReadPDFrec( PDFREC &a )
+{
+    local uint reclen;
+    reclen = ( pdf.recptr[1].dataOffset - pdf.recptr[0].dataOffset );
+    string s;
+    s = "Hello";
+    return s;
+}
+    // Define each line of the image
+    struct PDFREC {
+      UBYTE  Data[ 4096 ];
+    } record[ pdf.numberOfRecords ];
+
+
+
+
+RGBQUAD aColors[ bmih.biClrUsed ];
+
+typedef struct
+{
+    char record[];
+}
+MATRIX[pdf.numberOfRecords];
+
+MATRIX pdfrec;
+
+local uint reclen;
+reclen = ( pdf.recptr[1].dataOffset - pdf.recptr[0].dataOffset );
+FSeek(pdf.recptr[0].dataOffset);
+pdfrec[0].record[reclen];
+
+reclen = ( pdf.recptr[2].dataOffset - pdf.recptr[1].dataOffset );
+FSeek(pdf.recptr[1].dataOffset);
+pdfrec[1].record[reclen];
+*/
+return;

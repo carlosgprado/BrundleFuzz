@@ -1,0 +1,552 @@
+//------------------------------------
+//--- 010 Editor v1.2 Binary Template
+//
+// Author:  Sergey Evtushenko wildcar@mail.ru
+// Purpose: Display resources structure of a res file or PE file with Resources
+//          Info for the .rsrc section format in PE file was taken from http://msdn.microsoft.com/en-us/library/ms809762.aspx,
+//          but full understanding came after this https://forum.intern0t.org/security-tutorials-guides/4135-portable-executable-format-its-rsrc-section.html
+//          Info for RES file format was taken from http://msdn.microsoft.com/en-us/library/windows/desktop/ms648007(v=vs.85).aspx
+//          There is not all the pure truth but there is some info at least
+//          Additionally this template display the VersionInfo resource structure
+//          Info for this format was taken from http://msdn.microsoft.com/en-us/library/windows/desktop/ff468916(v=vs.85).aspx
+//          There is also not all the truth but there is some info at least
+// This template is using modified EXETemplate for skip right to rsrc section. Thanks to Blaine Lefebvre for it.
+// File mask: *.res, *.exe, *.dll
+// Date: 2014-07-29 
+// Place: Zaprudnya (sometimes Moscow), Russia
+
+// Local global variables :)
+local int64 rsrc_va, rsrc_sa, rsrc_ea, res_level;
+local int32 rTypeID, rNameID, rLanguageID;
+local int res_show_log=0; // Switch it to 1 for verbose output (there is output only for PE)
+
+// Skip right to the .rsrc section
+GoTo_rsrc_section();
+if (rsrc_va>0)
+    {
+    //PE file detected
+    RESfromPEDiscover();
+    }
+else
+    {
+    // else we think that it is a RES file
+    RESfromRESDiscover();
+    }
+	
+// DOS exe format
+typedef struct {
+	char Signature[2]; 
+    WORD  LengthOfImage;  
+    WORD  SizeOfFile; 
+    WORD  NumberOfRelocationItems; 
+    WORD  SizeOfHeader; 
+    WORD  MinPara; 
+    WORD  MaxPara; 
+    WORD  OffsetStack; 
+    WORD  InitialSp; 
+    WORD  NegativeChecksum;
+    WORD  InitialIp;
+	WORD  OffsetCs;
+    WORD  OffsetFirstRelocationItem;
+    WORD  OverlayNumber; 
+	WORD  Res1;
+	WORD  Res2;
+	WORD  Res3;
+	WORD  Res4;
+	WORD  OemId;       
+	WORD  OemInfo;     
+	WORD  Res5[10];      
+  	DWORD OffsetToPEHeader;
+} DosExeHeader;
+
+typedef struct {
+	int32 DirExport; 
+	int32 DirExportSize; 
+	int32 DirImport; 
+	int32 DirImportSize; 
+	int32 DirResource; 
+	int32 DirResourceSize;
+	int32 DirException; 
+	int32 DirExceptionSize;
+	int32 DirSecurity; 
+	int32 DirSecuritySize; 
+	int32 DirBasereloc; 
+	int32 DirBaserelocSize;
+	int32 DirDebug; 
+	int32 DirDebugSize;
+	int32 DirArchitecture;
+	int32 DirArchitectureSize;
+	int32 DirGlobalptr; 
+	int32 DirGlobalptrSize;
+	int32 DirTls;
+	int32 DirTlsSize;
+	int32 DirLoadConfig;
+	int32 DirLoadConfig_size;
+	int32 DirBoundImport; 
+	int32 DirBoundImportSize;
+	int32 DirIat; 
+	int32 DirIatSize; 
+	int32 DirDelayImport; 
+	int32 DirDelayImportSize; 
+	int32 DirComDescriptor;
+	int32 DirComDescriptorSize;
+	int32 DirX;
+	int32 DirXSize;
+} DataDirectory;
+
+typedef struct {
+	int32 rva;
+	int32 size;
+} DataDir;
+
+typedef struct {
+    char Sig[4];  
+	int16 CpuType;	  
+  	int16 NumSections; 
+    time_t Tm;      
+    int32 PointerToSymbolTable;          
+    int32 NumberOfSymbols;    
+    int16 NtHeaderSize; 
+    int16 Flags;   
+} PeHeader;
+
+typedef struct {
+    int16 Res3; 
+  	char LMajor; 
+	char LMinor;   
+    int32 SizeOfCode;         
+    int32 SizeOfInitData;              
+	int32 SizeOfUninitData;    
+    int32 EntrypointRva;              
+	int32 BaseOfCode;           
+    int32 BaseOfData;                
+	int32 ImageBase;         
+    int32 SectionAlign;              
+	int32 FileAlign;          
+	int16 OsMajor;   
+   	int16 OsMinor; 
+  	int16 UserMajor;  
+ 	int16 UserMinor; 
+	int16 SubsystemMajor; 
+	int16 SubsystemMinor; 
+    int32 Win32VersionValue;           
+    int32 ImageSize; 
+    int32 HeaderSize;        
+    int32 FileChecksum;   
+    int16 Subsystem;   
+	int16 DllFlags;   
+    int32 StackReserveSize;
+    int32 StackCommitSize;  
+	int32 HeapReserveSize;   
+    int32 HeapCommitSize;      
+    int32 LoaderFlags; 
+    int32 NumInterestingRvaSize; 
+ } OptionalHeader;
+
+typedef struct{
+	char Name[8];
+    int32 VirtualSize; 
+    int32 VirtualAddress; 
+    int32 SizeOfRawData;   
+    int32 PointerToRawData;  
+    int32 PointerToRelocations;  
+    int32 PointerToLinenumbers; 
+    int16 NumberOfRelocations;   
+	int16 NumberOfLinenumbers; 
+    int32 Characteristics;  
+} SectionTable;
+
+void GetResourceDirectory()
+    {
+    res_level+=1;
+    struct 
+        {
+        local int32 j;
+        uint32 Characteristics;
+        DOSTIME TimeStamp; 
+        DOSDATE DataStamp; 
+        uint16 MajorVersion; 
+        uint16 MinorVersion; 
+        uint16 NumberOfNameEntries; 
+        uint16 NumberOfIDEntries;
+        for( j=0;j<NumberOfNameEntries;j++)
+            {
+            struct 
+                {
+                local int64 currentaddress;
+                uint32 NameRVA:31 <format=hex>;
+                int TopBit:1; 
+                currentaddress= FTell();
+                FSeek(rsrc_sa+NameRVA);
+                int16 Length;
+                wchar_t UnicodeString[Length]; 
+                if (res_show_log==1){Printf("\nLevel %d. ",res_level);}
+                if (res_show_log==1){Printf("Name: %s",UnicodeString);}
+                FSeek(currentaddress);
+
+                uint32 DataEntryRVA:31 <format=hex>; 
+                int PointToChild:1; 
+                currentaddress= FTell();
+                if (PointToChild==1)
+                    {
+                    FSeek(rsrc_sa+DataEntryRVA);
+                    GetResourceDirectory();
+                    FSeek(currentaddress);
+                    };
+                } DirectoryNameEntry;
+            };
+        for( j=0;j<NumberOfIDEntries;j++)
+            {
+            struct 
+                {
+                local int64 currentaddress;
+                switch( res_level )
+                    {
+                    case 1:
+                    uint32 IntegerID <comment=ShowType>;
+                    rTypeID=IntegerID;
+                    if (res_show_log==1){Printf("\n%s",ShowType(rTypeID));}
+                    break; 
+                    case 2:
+                    uint32 IntegerID <comment=ShowName>;
+                    rNameID=IntegerID;
+                    if (res_show_log==1){Printf("\n%s",ShowName(rNameID));}
+                    break; 
+                    case 3:
+                    uint32 IntegerID <comment=ShowLanguage>;
+                    rLanguageID=IntegerID;
+                    if (res_show_log==1){Printf("\n%s",ShowLanguage(rLanguageID));}
+                    break; 
+                    }
+                uint32 DataEntryRVA:31 <format=hex>; 
+                int PointToChild:1; 
+                currentaddress= FTell();
+                if (PointToChild==1)
+                    {
+                    FSeek(rsrc_sa+DataEntryRVA);
+                    GetResourceDirectory();
+                    FSeek(currentaddress);
+                    }
+                else
+                    {
+                    FSeek(rsrc_sa+DataEntryRVA);
+                    struct 
+                        {
+                        local int64 ba1, ba2;
+                        int32 DataRVA <format=hex>;
+                        int32 Size; 
+                        int32 Codepage; 
+                        int32 Reserved; 
+                        FSeek(DataRVA-(rsrc_va-rsrc_sa));
+                        if (rTypeID==16)
+                            {
+                            struct
+                                {
+                                ba1=FTell();
+                                char VersionInfoRAWData[Size];
+                                ba2=FTell();
+                                FSeek(ba1);
+                                VersionInfo();
+                                FSeek(ba2);
+                                } versioninfo;
+                            }
+                        else
+                            {
+                        char ResourceRAWData[Size];
+                            };
+                        } DataEntry;
+                    FSeek(currentaddress);
+                    };
+                } DirectoryIDEntry;
+            };
+        } DirectoryTable;
+    res_level-=1;
+    };
+
+string ShowType(uint32 ID)
+    {
+    local string s;
+    switch( ID)
+        {
+        case 1: s="Cursor";break;
+        case 2: s="Bitmap";break;
+        case 3: s="Icon";break;
+        case 4: s="Menu";break;
+        case 5: s="Dialog box";break;
+        case 6: s="String table entry";break;
+        case 7: s="Font directory";break;
+        case 8: s="Font";break;
+        case 9: s="Accelerator table";break;
+        case 10: s="Application defined resource (raw data)";break;
+        case 11: s="Message table entry";break;
+        case 12: s="Group cursor";break;
+        case 14: s="Group icon";break;
+        case 16: s="Version information";break;
+        case 17: s="Dlginclude";break;
+        case 19: s="Plug and play resource";break;
+        case 20: s="VXD";break;
+        case 21: s="Animated cursor";break;
+        case 22: s="Animated icon";break;
+        case 23: s="HTML";break;
+        case 24: s="Side-by-side assembly manifest";break; 
+        }   
+    SPrintf( s, "1. Resource type: %s", s ); 
+    return s;
+    } 
+string ShowName(uint32 ID)
+    {
+    local string s;
+    SPrintf( s, "2. Name ID: %d", ID ); 
+    return s;
+    }
+
+string ShowSName(wstring Str)
+    {
+    local string s;
+    SPrintf( s, "2. Name: %s", Str ); 
+    return s;
+    }
+
+string ShowLanguage(uint32 ID)
+    {
+    local string s;
+    SPrintf( s, "3. Language ID: %d", ID ); 
+    return s;
+    }
+
+void RESfromPEDiscover()
+	{
+    rsrc_sa=FTell();
+    struct  
+        {
+		if (res_show_log==1) Printf("\nResources list.");
+        res_level=0;
+        GetResourceDirectory();
+        } ResourcesStructure;
+}
+
+void GoTo_rsrc_section()
+	{
+	local int32 i;
+    rsrc_sa=0;
+    rsrc_va=0;
+	DosExeHeader DOSHead <hidden=true>;
+    //Check if this is a PE file, if not we cannot get the rsrc section, probably this is a plain .res file, so we should start from 0
+	if ( !Memcmp(DOSHead.Signature,"MZ",2) )
+		{
+	    char dosstub[DOSHead.OffsetToPEHeader-(DOSHead.SizeOfHeader*0x10)] <hidden=true>;
+	    PeHeader PEHead <hidden=true>;
+	    if ( !Memcmp(PEHead.Sig,"PE",2) )
+		    {
+          	OptionalHeader OptionalHead <hidden=true>;
+	        DataDir dd[16] <hidden=true>;
+	        SectionTable sec[PEHead.NumSections] <hidden=true>;
+	        for ( i = 0 ; i < PEHead.NumSections ; i++ )
+		        {
+		        FSeek(sec[i].PointerToRawData);
+		        if ( !Strcmp(sec[i].Name,".rsrc") )
+                    {
+                    rsrc_sa=FTell(); 
+                    rsrc_va=sec[i].VirtualAddress;
+                    }
+		        }
+            }
+		}
+	FSeek(rsrc_sa);
+	}
+
+int Padding4Bytes(int Value)
+    {
+    return (Value%4>0)*(4-Value%4);
+    }
+
+void VersionInfo()
+    {
+    struct
+        {
+        WORD wLength;
+        WORD wValueLength;
+        WORD wType;
+        wstring szKey;
+        if (!Strcmp(szKey,"VS_VERSION_INFO")) // Check that it is true VS_VERSION_INFO (The 1st step)
+			{
+            byte padding_n[Padding4Bytes(sizeof(wValueLength))];
+            struct
+                {
+                DWORD	dwSignature <format=hex>;
+                struct
+                    {
+                    WORD StructureMinorVersion;
+                    WORD StructureMajorVersion;
+                    } dwStrucVersion;
+                struct
+					{
+                    WORD FileMinorVersion;
+                    WORD FileMajorVersion;
+                    } dwFileVersionMS;
+                struct
+					{
+                    WORD FileBuildNumber;
+                    WORD FileRevision;
+                    } dwFileVersionLS;
+                struct
+					{
+                    WORD FileMinorVersion;
+                    WORD FileMajorVersion;
+                    } dwProductVersionMS;
+                struct
+					{
+                    WORD FileBuildNumber;
+                    WORD FileRevision;
+                    } dwProductVersionLS;
+                DWORD	dwFileFlagsMask;
+                DWORD	dwFileFlags;
+                DWORD	dwFileOS;
+                DWORD	dwFileType;
+                DWORD	dwFileSubtype;
+                DWORD	dwFileDateMS;
+                DWORD	dwFileDateLS;
+                } VS_FIXEDFILEINFO;
+			if (VS_FIXEDFILEINFO.dwSignature==0xFEEF04BD) // Check that it is true VS_VERSION_INFO (The 2nd step)
+				{
+                byte Padding2[Padding4Bytes(sizeof(VS_FIXEDFILEINFO))]; // Should be no reason this to exist
+                // Check of StringFileInfo existence
+                struct
+                    {
+                    FSkip(6);
+                    wstring szKeyCheck <hidden=true>;
+                    FSkip(-6-sizeof(szKeyCheck));
+                    if (!Strcmp(szKeyCheck,"StringFileInfo"))
+                        {
+                        local int HeaderLength;
+                        local int64 LenghtLeft;
+                        WORD wLength;
+                        WORD wValueLength;
+                        WORD wType;
+                        wstring szKey;
+                        HeaderLength=6+sizeof(szKey);
+                        byte Padding[Padding4Bytes(HeaderLength)];
+                        LenghtLeft=wLength-HeaderLength-Padding4Bytes(HeaderLength);
+                        while (LenghtLeft>0)
+                            {
+                            struct
+                                {
+                                local int HeaderLength;
+                                WORD wLength;
+                                WORD wValueLength;
+                                WORD wType;
+                                wstring szKey;
+                                HeaderLength=6+sizeof(szKey);
+                                byte Padding[Padding4Bytes(HeaderLength)];
+                                local int64 LenghtLeft;
+                                LenghtLeft=wLength-6-sizeof(szKey);
+                                while (LenghtLeft>0)
+                                    {
+                                    struct
+                                        {
+                                        local int HeaderLength;
+                                        WORD wLength;
+                                        WORD wValueLength;
+                                        WORD wType;
+                                        wstring szKey;
+                                        HeaderLength=6+sizeof(szKey);
+                                        byte Padding[Padding4Bytes(HeaderLength)];
+                                        wstring Value;
+                                        byte padding_v[Padding4Bytes(sizeof(Value))];
+                                        }String;
+                                    LenghtLeft-=sizeof(String);
+                                    } 
+                                }StringTable;
+                            LenghtLeft-=sizeof(StringTable);
+                            }
+                        }
+                    } StringFileInfo;
+                // Check of VarFileInfo existence
+                struct
+                    {
+                    FSkip(6);
+                    wstring szKeyCheck <hidden=true>;
+                    FSkip(-6-sizeof(szKeyCheck));
+                    if (!Strcmp(szKeyCheck,"VarFileInfo"))
+                        {
+                        local int HeaderLength;
+                        local int64 LenghtLeft;
+                        WORD wLength;
+                        WORD wValueLength;
+                        WORD wType;
+                        wstring szKey;
+                        HeaderLength=6+sizeof(szKey);
+                        byte Padding[Padding4Bytes(HeaderLength)];
+                        LenghtLeft=wLength-HeaderLength-Padding4Bytes(HeaderLength);
+                        while (LenghtLeft>0)
+                            {
+                            struct
+                                {
+                                local int HeaderLength;
+                                WORD wLength;
+                                WORD wValueLength;
+                                WORD wType;
+                                wstring szKey;
+                                HeaderLength=6+sizeof(szKey);
+                                byte Padding[Padding4Bytes(HeaderLength)];
+                                DWORD Value <format=hex>;
+                                } Var;
+                            LenghtLeft-=sizeof(Var);
+                            } 
+                        }
+                    } VarFileInfo;
+				}
+			}
+		} VS_VERSIONINFO;
+    }
+	
+void RESfromRESDiscover()
+	{
+    while (!FEof())
+        {
+        struct
+            {
+            DWORD DataSize;
+            DWORD HeaderSize;
+            WORD TYPE_type;
+            if (TYPE_type==0xFFFF)
+                {
+                WORD TYPE <comment=ShowType>;
+                }
+            else
+                {
+                FSkip(-2);
+                wstring sType;
+                byte padding_t[Padding4Bytes(sizeof(sType))];
+                }
+            WORD NAME_type;
+            if (NAME_type==0xFFFF)
+                {
+                WORD NAME <comment=ShowName>;
+                }
+            else
+                {
+                FSkip(-2);
+                wstring sName <comment=ShowSName>;
+                local int32 pn_size;
+                byte padding_n[Padding4Bytes(sizeof(sName))];
+                }
+            DWORD DataVersion;
+            WORD  MemoryFlags;
+            WORD  LanguageId <comment=ShowLanguage>;
+            DWORD Version;
+            DWORD Characteristics;
+            char ResourceRAWData[DataSize];
+            if (TYPE==16)
+                {
+				local int64 ba1, ba2;
+                ba2=FTell();
+				ba1=ba2-DataSize;
+                FSeek(ba1);
+                VersionInfo();
+                FSeek(ba2);
+                }
+            byte padding[Padding4Bytes(DataSize)];
+            } Resource;
+        }
+	}

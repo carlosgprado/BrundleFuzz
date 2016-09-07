@@ -1,0 +1,154 @@
+//--------------------------------------
+//--- 010 Editor v3.1.2 Binary Template
+//
+// File:     FAT16Template.bt
+// Author:
+// Revision:
+// Purpose:  This template can find the 
+//  partitions and display the FAT16 
+//  partitions on the disk.
+//--------------------------------------
+
+//--------------------------------------
+//Master Boot record
+//--------------------------------------
+typedef struct _CHS
+{
+    BYTE    Head;
+    BYTE    Sector;
+    BYTE    Cylinder;
+}CHS;
+//--------------------------------------
+typedef union _CHSAddr
+{
+    CHS  chs;
+    BYTE Address[3];
+}CHSAddr;
+//--------------------------------------
+typedef struct _Partion_Table_Entry{
+    BYTE    Status;
+    CHSAddr StartCHSAddress;
+    BYTE    PartitionType;
+    CHSAddr EndCHSAddress;
+    DWORD   FirstLBA;
+    DWORD   TotalSectors;
+}Partion_Table_Entry;
+//--------------------------------------
+typedef struct {
+    BYTE Code[446];
+    Partion_Table_Entry ptable[4];
+    WORD Signature55AA <format=hex>;
+    if ( Signature55AA != 0xAA55 )
+	{
+	    Warning("Invalid MBR");	
+	    return 1;
+	}
+}MBR;
+//--------------------------------------
+//FAT Boot sector FAT12,FAT16
+//--------------------------------------
+typedef struct  _FAT16BootSector
+{
+    BYTE    JumpCode[3];
+    BYTE    OEM_Name[8];
+    WORD    BytesPerSector;
+    BYTE    SectorsPerCluster;
+    WORD    ReservedSectorCount;    //Number of sectors before the first FAT, including the boot sector
+    BYTE    NumberOfFAT;
+    WORD    MAX_RootDirEntry;
+    WORD    TotalSectors;           //If Less than 65535 else see offset 0x20
+    BYTE    MediaDescriptor;
+    WORD    SectorsPerFAT;          //For FAT12/16
+    WORD    SectorsPerTrack;
+    WORD    NumberOfHeads;
+    DWORD   HiddenSectorsBeforePartition;
+    DWORD   TotalSectors;
+    BYTE    PhysicalDriveNumber;
+    BYTE    Reserved;               //Current Head
+    BYTE    ExtendedBootSignature;
+    BYTE    SerialNumber[4];
+    BYTE    VolumeLable[11];
+    BYTE    FAT_Type[8];
+    BYTE    BootCode[448];
+    WORD    BootSectorSignature;    //0x55 0xAA    
+}FAT16BootSector;
+//--------------------------------------
+//FAT16
+//--------------------------------------
+local unsigned int FATEntryCount=0;
+typedef struct _FAT16
+{
+    WORD Table[FATEntryCount];
+}FAT16;
+//--------------------------------------
+//FAT root dir entry FAT12,FAT16
+//--------------------------------------
+typedef struct  _RootDirEntry
+{
+    BYTE name[8];
+    BYTE extn[3];
+    BYTE attributes;
+    BYTE reserved[10];
+    WORD time;
+    WORD date;
+    WORD firstDataBlock;
+    DWORD size;
+}RootDirEntry;
+//--------------------------------------
+LittleEndian();
+FSeek(0);
+//--------------------------------------
+//MBR Object
+MBR MasterBootRecord;
+//--------------------------------------
+//Partition Info
+//--------------------------------------
+local unsigned int partition_index=0;
+typedef struct  _Fat16Partition
+{
+
+    local unsigned int startBYTE = (MasterBootRecord.ptable[partition_index].FirstLBA*512);
+    FSeek( startBYTE);
+    FAT16BootSector BtSector;
+
+    //--------------------------------------
+    //Find the FATs
+    //--------------------------------------
+    //Skip the reserved sectors (-1 for accounting the bootrecord)
+    FSkip((BtSector.ReservedSectorCount-1)*512);
+    
+    local unsigned int FATsize = (BtSector.SectorsPerFAT * 512)/2;
+    local unsigned int FATcnt = 0;
+    for(FATcnt = 0;FATcnt < BtSector.NumberOfFAT;++FATcnt)
+    {
+        FATEntryCount=FATsize;
+        FAT16 FAT;
+    }
+    
+    //--------------------------------------
+    //Find the Root Dir Entries
+    //--------------------------------------
+    RootDirEntry rootDir[BtSector.MAX_RootDirEntry];
+    //--------------------------------------
+
+}Fat16Partition;
+//--------------------------------------
+//disk Info
+//--------------------------------------
+typedef struct _Disk
+{
+    //find all the partitions
+    local int part;
+    for(part=0;part<4;++part)
+    {
+        if(MasterBootRecord.ptable[part].FirstLBA)
+        {
+            partition_index=part;
+            Fat16Partition FAT16partition;
+        }   
+    }
+}Disk;
+//--------------------------------------
+Disk dsk;
+//--------------------------------------
+

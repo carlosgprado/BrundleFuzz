@@ -1,0 +1,57 @@
+//--------------------------------------
+//--- 010 Editor v3.0.5 Binary Template
+//
+// File:     STLTemplate.bt
+// Author:   ZiZi
+// E-mail:   zefars@rambler.ru
+// Revision: 1.2
+// Purpose:  Defines a template for
+//    parsing STL 3D-data files.
+//-----------------------------------
+
+typedef struct {
+    CHAR    Caption[80];
+    DWORD   trCount;
+} STLFILEHEADER <read=STLFILEHEADERRead>;
+
+ string STLFILEHEADERRead(STLFILEHEADER &x)
+  { 
+   return x.Caption;
+  };
+
+typedef struct {
+    FLOAT    x;
+    FLOAT    y;
+    FLOAT    z;
+} tVector3f <read=tVector3fRead>;
+string tVector3fRead( tVector3f &v ) {
+ string s;   
+ SPrintf( s, "(%6.2f %6.2f %6.2f)", v.x, v.y, v.z );
+ return s;
+};
+
+typedef struct {
+    tVector3f    Normal;
+    tVector3f    Point0;
+    tVector3f    Point1;
+    tVector3f    Point2;
+    WORD         Flags <format=hex>;
+} STLTRIANGLE;
+
+//---------------------------------------------
+
+LittleEndian(); 
+SetBackColor( cLtAqua );
+
+local CHAR text_sign[5];
+ReadBytes( text_sign, FTell(), 5);
+if (text_sign=="solid")
+ {
+  Warning("Is ASCII STL");
+  return;
+ }
+STLFILEHEADER stlh;
+SetBackColor( cNone );
+local int64 n=(FileSize()-84)/50;
+if (stlh.trCount!=n) Warning("File corrupted: stlh.trCount must be equal %Ld", n);
+STLTRIANGLE Data[n];

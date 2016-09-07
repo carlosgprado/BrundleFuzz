@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block head %}
+{{ super() }}
+    <script src="{{ url_for('static', filename = 'jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename = 'bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename = 'canvasjs.min.js') }}"></script>
+    <script type="text/javascript">
+    window.onload = function () {
+    var chart = new CanvasJS.Chart("chartContainer",
+    {
+      theme:"theme2",
+      title:{
+        text: "Code Coverage"
+      },
+      animationEnabled: true,
+      axisY :{
+        title: "Coverage",
+        includeZero: false,
+        valueFormatString: "#,,.",
+        suffix: " %"
+      },
+      toolTip: {
+        shared: "true"
+      },
+      data: [
+      {
+        type: "splineArea",
+        showInLegend: false,
+        name: "Code Coverage",
+        markerSize: 5,
+        color: "rgba(0, 120, 60, .9)",
+        dataPoints: [
+        {label: "Ep. 1", y: 0.4},
+        {label: "Ep. 2", y: 0.55},
+        {label: "Ep. 3", y: 1.43},
+        {label: "Ep. 4", y: 1.86},
+        {label: "Ep. 5", y: 2.56},
+        {label: "Ep. 6", y: 7.43},
+        {label: "Ep. 7", y: 7.43},
+        {label: "Ep. 8", y: 8.46},
+        {label: "Ep. 9", y: 8.46},
+        {label: "Ep. 10", y: 8.46}
+        ]
+      }
+      ],
+    });
+
+    chart.render();
+    }
+    </script>
+{% endblock %}
+
+{% block title %}BrundleFuzz - Code Coverage{% endblock %}
+
+{% block page_content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-6">
+
+            <!-- Chart goes here -->
+            <div id="chartContainer" style="height: 480px; width: 640px;">
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+

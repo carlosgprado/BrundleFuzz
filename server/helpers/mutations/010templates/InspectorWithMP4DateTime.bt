@@ -1,0 +1,116 @@
+//-----------------------------------
+//--- 010 Editor v4.0 Binary Template
+//
+// File:     InspectorMoje.bt
+// Author:   SweetScape Software
+// Revision: 1.1
+// Purpose:  This template may be used
+//  to customize the auto tab of the
+//  Inspector with your own variables.
+//  See the Inspector section of the
+//  Options dialog for more information.
+// Changes:
+// 1.1 (SweetScape):
+//   - Added hfloat data type.
+// 1.2 (Marian Denes):
+//   - Added MP4_Time data type
+//-----------------------------------
+RequiresVersion( 4.0 );
+
+// Calculate the position for each variable,
+//  either at the beginning of the selection
+//  or at the current cursor position.
+local int64 position;
+if( GetSelSize() > 0 )
+    position = GetSelStart();
+else
+    position = GetCursorPos();
+
+
+int leap(int year)
+{
+    return year % 4 == 0 && ( year % 100 != 0 || year % 400 == 0 );
+}
+
+int daysInYear(int year) {return 365 + leap(year);}
+
+
+typedef uint MP4_Time <read=MP4_TimeRead, write=MP4_TimeWrite>;
+
+    string MP4_TimeRead( MP4_Time secs )
+    {
+        // secs - seconds since midnight, January 1, 1904
+
+        int days  = secs / 86400;
+            secs  = secs % 86400;
+
+        int year  = 1904;
+        int month =    1;
+
+        int daysInMonth[13] = {-1, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        int extraDay   [13] = {-1,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0};
+
+        while (days > daysInYear(year))
+        {
+            days -= daysInYear(year);
+            year++;
+        }
+
+        while (days > daysInMonth[month] + leap(year) * extraDay[month])
+        {
+            days  -=  daysInMonth[month] + leap(year) * extraDay[month];
+            month++;
+        }
+
+        int day   = ++days;         // 0 (full) days remaining means the 1st day of the monht, and so on
+
+        int hours = secs / 3600;
+            secs  = secs % 3600;
+        int mins  = secs /   60;
+            secs  = secs %   60;
+
+        string s;
+        SPrintf( s, "%02d.%02d.%4d %02d:%02d:%02d", day, month, year, hours, mins, secs );
+        return s;
+    }
+
+    void MP4_TimeWrite( MP4_Time &secs, string dateTime )
+    {
+        int daysInMonth[13] = {-1, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        int extraDay   [13] = {-1,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0};
+
+        int day, month, year, hour, min, sec; //secs = 0x1122;
+        SScanf(dateTime, "%d.%d.%d %d:%d:%d", day, month, year, hour, min, sec);
+
+        int days = day - 1;             // January 1, 1994 is 0 days after this date, and so on
+        int months, hours, mins, y, m;
+
+        for (y = 1904; y < year; ++y)
+            days += daysInYear(y);
+
+        for (m = 1; m < month; ++m)
+            days +=  daysInMonth[m] + leap(year) * extraDay[m];
+
+        secs = days * 86400 + hour * 3600 + min * 60 + sec;
+    }
+
+// Define variables for the inspector
+FSeek( position ); MP4_Time _mp4t <name="MP4 time">;
+FSeek( position ); byte     _si8  <name="Signed Byte">;
+FSeek( position ); ubyte    _ui8  <name="Unsigned Byte">;
+FSeek( position ); short    _si16 <name="Signed Short">;
+FSeek( position ); ushort   _ui16 <name="Unsigned Short">;
+FSeek( position ); int      _si32 <name="Signed Int">;
+FSeek( position ); uint     _ui32 <name="Unsigned Int">;
+FSeek( position ); int64    _si64 <name="Signed Int64">;
+FSeek( position ); uint64   _ui64 <name="Unsigned Int64">;
+FSeek( position ); float    _f    <name="Float">;
+FSeek( position ); double   _d    <name="Double">;
+FSeek( position ); hfloat   _hf   <name="Half Float">;
+FSeek( position ); char     _s [ReadStringLength(position,256)]  <name="String">;  // limit to 256 characters
+FSeek( position ); wchar_t  _ws[ReadWStringLength(position,256)] <name="Unicode">; // limit to 256 characters
+FSeek( position ); DOSDATE  _dd   <name="DOS Date">;
+FSeek( position ); DOSTIME  _dt   <name="DOS Time">;
+FSeek( position ); FILETIME _ft   <name="FILETIME">;
+FSeek( position ); OLETIME  _ot   <name="OLETIME">;
+FSeek( position ); time_t   _tt   <name="time_t">;

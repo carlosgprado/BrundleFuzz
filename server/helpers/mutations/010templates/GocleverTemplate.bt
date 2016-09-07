@@ -1,0 +1,41 @@
+//--------------------------------------
+//--- 010 Editor v3.2.1 Binary Template
+//
+// File:GocleverTemplate.bt
+// Author:Artur Babecki
+// Revision: 21.02.2012
+// Purpose: template for GOCLEVER Navigation log format 
+//          GPSLogYYYY-MM-DD_xx-xx-xx.bin 
+//          (Model GC-4335 and others)
+//         Generates raport in the human readable form:
+//         Date, Longitude, Latitude, Geoid,  Altitude, Direction.
+//
+//--------------------------------------
+
+
+local uint number_of_records;
+local int  i;
+local string s;
+
+number_of_records=FileSize()/48;
+struct gps 
+{
+	double longitude ;
+	double latitude ;
+	time_t date;
+	int direction;
+	int speed;
+	uchar unknown_data [12];  
+	int geoid;
+	int altitude ;
+} goclever[number_of_records];
+OutputPaneClear();
+
+Printf("GOCLEVER Navigation log: %s \n\n",GetFileName());
+Printf("   Date\t\tLongitude   Latitude  Geoid   Altitude    Direction   Speed\n");
+Printf("mm/dd/yyyy hh:mm:ss\n");
+for (i=0;i<number_of_records;i++)
+{
+	s=TimeTToString(goclever[i].date );
+	Printf("%s\t%Lf\t%Lf\t%d\t%d\t%d\t%d\n",s,goclever[i].longitude, goclever[i].latitude,goclever[i].geoid,goclever[i].altitude,goclever[i].direction,goclever[i].speed);
+};

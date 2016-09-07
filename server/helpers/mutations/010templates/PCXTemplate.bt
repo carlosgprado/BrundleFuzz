@@ -1,0 +1,39 @@
+//------------------------------------
+//--- 010 Editor v1.2 Binary Template
+//
+// Name: PCXTemplate.bt
+// Author: James Newton
+// Purpose: Sample template for PCX
+//     header information.
+//------------------------------------
+
+enum <ubyte> PCX_TYPE {
+    v25         =0,     //Version 2.5 of PC Paintbrush 
+    v28Pal      =2,     //Version 2.8 w/palette information 
+    v28         =3,     //Version 2.8 w/o palette information 
+    v5Win       =4,     //PC Paintbrush for Windows(Plus for Windows uses Ver 5) 
+    v3up        =5      //Version 3.0 and > of PC Paintbrush and PC Paintbrush +, includes Publisher's Paintbrush. Includes 24-bit .PCX files.
+} ;
+
+struct PCX {
+        ubyte Manufacturer;     //Constant Flag, 10 = ZSoft .pcx 
+        PCX_TYPE version;       //Version information 
+        ubyte encoding;         //1 = .PCX run length encoding 
+        ubyte BitsPerPixel;     //Number of bits to represent a pixel (per Plane) - 1, 2, 4, or 8 
+        ushort Xmin;            //Window. Image Dimensions: Xmin,Ymin,Xmax,Ymax 
+        ushort Ymin;            //
+        ushort Xmax;            //
+        ushort Ymax;            //
+        ushort HDpi;            //Horizontal Resolution of image in DPI* 
+        ushort VDpi;            //Vertical Resolution of image in DPI* 
+        ubyte Colormap[48];     //Color palette setting, see text 
+        ubyte Reserved;         //Should be set to 0. 
+        ubyte NPlanes;          //Number of color planes 
+        ushort BytesPerLine;    //Number of bytes to allocate for a scanline plane. MUST be an EVEN number. Do NOT calculate from Xmax-Xmin.
+        ushort PaletteInfo;     //How to interpret palette- 1 = Color/BW, 2 = Grayscale (ignored in PB IV/ IV +) 
+        ushort HscreenSize;     //Horizontal screen size in pixels. New field found only in PB IV/IV Plus 
+        ushort VscreenSize;     //Vertical screen size in pixels. New field found only in PB IV/IV Plus 
+        ubyte Filler[54];       //Blank to fill out 128 byte header.  Set all bytes to 0
+};
+
+PCX file;

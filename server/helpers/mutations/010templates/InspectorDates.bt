@@ -1,0 +1,174 @@
+//-----------------------------------
+//--- 010 Editor v4.0 Binary Template
+//
+// File:     InspectorDates.bt
+// Author:   SweetScape Software
+// Revision: 1.0
+// Purpose:  Demonstrates how to add
+//  a series of date types to the 
+//  Inspector.bt file. Includes 
+//  WebkitTime, HFSTime, AppleTime, PRTime
+//  JavaTime, GPSTime, and BlackberryDate.
+//-----------------------------------
+RequiresVersion( 4.0 );
+
+// Calculate the position for each variable,
+//  either at the beginning of the selection
+//  or at the current cursor position.
+local int64 pos;
+if( GetSelSize() > 0 )
+    pos = GetSelStart();
+else
+    pos = GetCursorPos();
+
+// Define variables for the inspector
+FSeek( pos ); byte     _si8  <name="Signed Byte">;
+FSeek( pos ); ubyte    _ui8  <name="Unsigned Byte">;
+FSeek( pos ); short    _si16 <name="Signed Short">;
+FSeek( pos ); ushort   _ui16 <name="Unsigned Short">;
+FSeek( pos ); int      _si32 <name="Signed Int">;
+FSeek( pos ); uint     _ui32 <name="Unsigned Int">;
+FSeek( pos ); int64    _si64 <name="Signed Int64">;
+FSeek( pos ); uint64   _ui64 <name="Unsigned Int64">;
+FSeek( pos ); float    _f    <name="Float">;
+FSeek( pos ); double   _d    <name="Double">;
+FSeek( pos ); char     _s [ReadStringLength(pos,256)]  <name="String">;  // limit to 256 characters
+FSeek( pos ); wchar_t  _ws[ReadWStringLength(pos,256)] <name="Unicode">; // limit to 256 characters
+FSeek( pos ); DOSDATE  _dd   <name="DOS Date">;
+FSeek( pos ); DOSTIME  _dt   <name="DOS Time">;
+FSeek( pos ); time_t   _tt   <name="time_t">;
+FSeek( pos ); FILETIME _ft   <name="FILETIME">;
+FSeek( pos ); OLETIME  _ot   <name="OLETIME">;
+
+//----------------------------------------------------------------
+// WebkitTime
+//      64-bit integer, number of microseconds since 01/01/1601 00:00:00
+typedef uint64 WebkitTime <read=WebkitTimeRead, write=WebkitTimeWrite>;
+FSeek( pos ); WebkitTime _wkt <name="WebkitTime">;
+string WebkitTimeRead( WebkitTime t )
+{   
+    // Convert to FILETIME
+    return FileTimeToString( t*10 );
+}
+int WebkitTimeWrite( WebkitTime &t, string value )
+{
+    // Convert from FILETIME
+    FILETIME ft;
+    int result = StringToFileTime( value, ft );
+    t = (int64)ft/10;
+    return result;
+}
+
+//----------------------------------------------------------------
+// HFSTime
+//      32-bit integer, number of seconds since 01/01/1904 00:00:00
+typedef uint HFSTime <read=HFSTimeRead, write=HFSTimeWrite>;
+FSeek( pos ); HFSTime _hft <name="HFSTime">;
+string HFSTimeRead( HFSTime t )
+{   
+    // Convert to FILETIME
+    return FileTimeToString( t*10000000L + 95616288000000000L );
+}
+int HFSTimeWrite( HFSTime &t, string value )
+{
+    // Convert from FILETIME
+    FILETIME ft;
+    int result = StringToFileTime( value, ft );
+    t = (int)(((uint64)ft - 95616288000000000L)/10000000L);
+    return result;
+}
+
+//----------------------------------------------------------------
+// AppleTime
+//      32-bit integer, number of seconds since 01/01/2001 00:00:00
+typedef uint AppleTime <read=AppleTimeRead, write=AppleTimeWrite>;
+FSeek( pos ); AppleTime _at <name="AppleTime">;
+string AppleTimeRead( AppleTime t )
+{   
+    // Convert to FILETIME
+    return FileTimeToString( t*10000000L + 126227808000000000L );
+}
+int AppleTimeWrite( AppleTime &t, string value )
+{
+    // Convert from FILETIME
+    FILETIME ft;
+    int result = StringToFileTime( value, ft );
+    t = (int)(((uint64)ft - 126227808000000000L)/10000000L);
+    return result;
+}
+
+//----------------------------------------------------------------
+// PRTime
+//      64-bit integer, number of microseconds since 01/01/1970 00:00:00
+typedef uint64 PRTime <read=PRTimeRead, write=PRTimeWrite>;
+FSeek( pos ); PRTime _prt <name="PRTime">;
+string PRTimeRead( PRTime t )
+{   
+    // Convert to FILETIME
+    return FileTimeToString( t*10L + 116444736000000000L );
+}
+int PRTimeWrite( PRTime &t, string value )
+{
+    // Convert from FILETIME
+    FILETIME ft;
+    int result = StringToFileTime( value, ft );
+    t = (((uint64)ft - 116444736000000000L)/10L);
+    return result;
+}
+
+//----------------------------------------------------------------
+// JavaTime
+//      64-bit integer, number of microseconds since 01/01/1970 00:00:00
+typedef uint64 JavaTime <read=JavaTimeRead, write=JavaTimeWrite>;
+FSeek( pos ); JavaTime _jt <name="JavaTime">;
+string JavaTimeRead( JavaTime t )
+{   
+    // Convert to FILETIME
+    return FileTimeToString( t*10000L + 116444736000000000L );
+}
+int JavaTimeWrite( JavaTime &t, string value )
+{
+    // Convert from FILETIME
+    FILETIME ft;
+    int result = StringToFileTime( value, ft );
+    t = (((uint64)ft - 116444736000000000L)/10000L);
+    return result;
+}
+
+//----------------------------------------------------------------
+// GPSTime
+//      32-bit integer, number of seconds since 01/06/1980 00:00:00
+typedef uint GPSTime <read=GPSTimeRead, write=GPSTimeWrite>;
+FSeek( pos ); GPSTime _gpst <name="GPSTime">;
+string GPSTimeRead( GPSTime t )
+{   
+    // Convert to FILETIME
+    return FileTimeToString( t*10000000L + 119604384000000000 );
+}
+int GPSTimeWrite( GPSTime &t, string value )
+{
+    // Convert from FILETIME
+    FILETIME ft;
+    int result = StringToFileTime( value, ft );
+    t = (int)(((uint64)ft - 119604384000000000)/10000000L);
+    return result;
+}
+
+//----------------------------------------------------------------
+// BlackberryDate
+//      32-bit integer, number of minutes since 01/01/1900 00:00:00
+typedef uint BlackberryDate <read=BlackberryDateRead, write=BlackberryDateWrite>;
+FSeek( pos ); BlackberryDate _gt <name="BlackberryDate">;
+string BlackberryDateRead( BlackberryDate t )
+{   
+    // Convert to FILETIME
+    return FileTimeToString( t*600000000L + 94354848000000000L );
+}
+int BlackberryDateWrite( BlackberryDate &t, string value )
+{
+    // Convert from FILETIME
+    FILETIME ft;
+    int result = StringToFileTime( value, ft );
+    t = (int)(((uint64)ft - 94354848000000000L)/600000000L);
+    return result;
+}

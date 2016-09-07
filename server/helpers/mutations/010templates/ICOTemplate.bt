@@ -1,0 +1,159 @@
+//-----------------------------------
+//--- 010 Editor v2.0 Binary Template
+//
+// File:     ICOTemplate.bt
+// Author:   Amotz Getzov
+// Revision: 1.0
+// Purpose:  Defines a template for
+//    parsing icon image files.
+//
+// Based on BMPTemplate.bt from SweetScape Software
+// Does not support PMG icon images
+//-----------------------------------
+
+typedef struct
+{
+   BYTE        bWidth;          // Width, in pixels, of the image
+   BYTE        bHeight;         // Height, in pixels, of the image
+   BYTE        bColorCount;     // Number of colors in image (0 if >=8bpp)
+   BYTE        bReserved;       // Reserved ( must be 0)
+   WORD        wPlanes;         // Color Planes
+   WORD        wBitCount;       // Bits per pixel
+   DWORD       dwBytesInRes;    // How many bytes in this resource?
+   DWORD       dwImageOffset;   // Where in the file is this image?
+} ICONDIRENTRY <read=ReadIconDirEntry>;
+
+typedef struct
+{
+   WORD           idReserved;   // Reserved (must be 0)
+   WORD           idType;       // Resource Type (1 for icons)
+   WORD           idCount;      // How many images?
+   ICONDIRENTRY   idEntries[idCount]; // An entry for each image (idCount of 'em)
+} ICONDIR;
+
+typedef struct {   // rgbq
+   UBYTE   rgbBlue;
+   UBYTE   rgbGreen;
+   UBYTE   rgbRed;
+   UBYTE   rgbReserved;
+} RGBQUAD <read=ReadRGBQUAD>;
+
+typedef struct {   // rgbt
+   UBYTE   rgbBlue;
+   UBYTE   rgbGreen;
+   UBYTE   rgbRed;
+} RGBTRIPLE <read=ReadRGBTRIPLE>;
+
+typedef struct {    // bmih
+	DWORD   biSize;
+	LONG    biWidth;
+	LONG    biHeight;
+	WORD    biPlanes;
+	WORD    biBitCount;
+	DWORD   biCompression;
+	DWORD   biSizeImage;
+	LONG    biXPelsPerMeter;
+	LONG    biYPelsPerMeter;
+	DWORD   biClrUsed;
+	DWORD   biClrImportant;
+ } BITMAPINFOHEADER;
+
+typedef struct {
+	// Define the color table
+	if( (bmiHeader.biBitCount != 24) && (bmiHeader.biBitCount != 32) )
+	{
+	    if( bmiHeader.biClrUsed > 0 )
+		RGBQUAD aColors[ bmiHeader.biClrUsed ];
+	    else
+		RGBQUAD aColors[ 1 << bmiHeader.biBitCount ];
+	}
+	
+	// Calculate bytes per line and padding required
+	local int bytesPerLine = (int)Ceil( bmiHeader.biWidth * bmiHeader.biBitCount / 8.0 );
+	local int padding      = 4 - (bytesPerLine % 4);
+	if( padding == 4 )
+	padding = 0;
+
+	// Define each line of the image
+	struct BITMAPLINE {
+
+	// Define color data
+	if( bmiHeader.biBitCount < 8 )
+	     UBYTE     imageData[ bytesPerLine ];
+	else if( bmiHeader.biBitCount == 8 )
+	     UBYTE     colorIndex[ bmiHeader.biWidth ];
+	else if( bmiHeader.biBitCount == 24 )
+	     RGBTRIPLE colors[ bmiHeader.biWidth ];
+	else if( bmiHeader.biBitCount == 32 )
+	     RGBQUAD   colors[ bmiHeader.biWidth ];
+
+	// Pad if necessary        
+	if( padding != 0 )
+	     UBYTE padBytes[ padding ];
+
+	} lines[ bmiHeader.biHeight/2 ]<optimize=false>;
+
+	// Define each line of the mask
+	struct MASKLINE {
+      UBYTE	line[((bmiHeader.biWidth + 31)/32)*4]<format=hex>;
+	}mask[bmiHeader.biHeight/2]<optimize=false>;
+	
+}IMAGEDATA;
+
+typedef struct {
+  SetBackColor( cLtAqua );
+	BITMAPINFOHEADER bmiHeader; 
+  SetBackColor( cLtGray );
+	IMAGEDATA data;
+}ICONIMAGE <read=ReadDIBHeader>;
+
+//---------------------------------------------
+// Custom read functions - this allows the data to be displayed without having to open up the structure.
+
+
+string ReadIconDirEntry( ICONDIRENTRY &dirEntry )
+{
+   string s;
+   SPrintf( s, "%dx%d %dbit %d colors", dirEntry.bWidth, dirEntry.bHeight, dirEntry.wBitCount, dirEntry.bColorCount );
+   return s;
+}
+
+string ReadDIBHeader( ICONIMAGE &image )
+{
+   string s;
+   SPrintf( s, "%dx%d %dbit", image.bmiHeader.biWidth, image.bmiHeader.biHeight, image.bmiHeader.biBitCount );
+   return s;
+}
+
+string ReadRGBQUAD( RGBQUAD &a )
+{
+   string s;
+   SPrintf( s, "#%02X%02X%02X%02X", a.rgbReserved, a.rgbRed, a.rgbGreen, a.rgbBlue );
+   return s;
+}
+
+string ReadRGBTRIPLE( RGBTRIPLE &a )
+{
+   string s;
+   SPrintf( s, "#%02X%02X%02X", a.rgbRed, a.rgbGreen, a.rgbBlue );
+   return s;
+}
+
+//---------------------------------------------
+
+// Define the headers
+LittleEndian();
+
+local short res = ReadShort( FTell() );
+local short type = ReadShort(FTell() +2  );
+
+//Check icon dir
+if( res != 0 ||  type != 1)
+{
+   Warning( "File is not an Icon. Template stopped." );
+   return -1;
+}
+
+SetBackColor( cNone );
+ICONDIR icondir;
+ICONIMAGE images[icondir.idCount] <optimize=false>;

@@ -1,0 +1,66 @@
+//---------------------------------------------------------------
+//--- 010 Editor v3.2 Binary Template
+//
+// File: SSPTemplate.bt
+// Author: ThangCuAnh (TQN) - HVA
+// Revision: 0.1, prototypes
+// Date: 2010/10/09
+// Purpose: Define a template for parsing SmartSniff Packet file
+// References: http://www.nirsoft.net/utils/smsniff.html
+//---------------------------------------------------------------
+
+typedef BYTE IP_ADDRESS[4] <read = IP2Str>;
+typedef BYTE MAC_ADDRESS[6] <read = MAC2Str>;
+
+string IP2Str(IP_ADDRESS ip)
+{
+    string strReturn;
+
+    SPrintf(strReturn, "IP: %02d.%02d.%02d.%02d", ip[0],  ip[1],  ip[2],  ip[3]);
+    return strReturn;
+}
+
+typedef struct {
+    char signature[8]; // SMSNF200
+    WORD numberOfBytesInHeader;
+    IP_ADDRESS IP;
+
+    if ((Strcmp(signature, "SMSNF200") != 0) || (numberOfBytesInHeader != 4))
+    {
+        Warning("Not a valid SmartSniff Packet file");
+        return -1;
+    }
+} SSP_HEADER;
+
+typedef struct {
+    WORD packetHeaderSize;
+    if (packetHeaderSize != 0x18)
+    {
+        Waring("Invalid packetHeaderSize");
+        return -1;
+    }
+    DWORD numberOfReceivedBytes;
+    FILETIME fileTime;
+    MAC_ADDRESS sourceMAC;
+    MAC_ADDRESS destMAC;
+    BYTE packet[numberOfReceivedBytes] <fgcolor = cRed,  bgcolor= cYellow>;
+} SSP_PACKET;
+
+string MAC2Str(MAC_ADDRESS mac)
+{
+    string strReturn;
+    SPrintf(strReturn, "%02X-%02X-%02X-%02X-%02X-%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    return strReturn;
+}
+
+// Define the headers
+LittleEndian();
+SSP_HEADER header;
+
+while (!FEof())
+{
+    SSP_PACKET record;
+}
+
+return 1;
