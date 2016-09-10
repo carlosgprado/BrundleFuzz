@@ -1,6 +1,9 @@
 #
-# This is built on top of BugId
-# https://github.com/SkyLined/BugId
+# This is preliminary. It performs a
+# dummy analysis before saving the
+# offending file.
+# TODO: implement some simple analysis
+# with gdb or similar.
 #
 
 from time import time

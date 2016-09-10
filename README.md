@@ -1,3 +1,3 @@
 # BrundleFuzz
 
-See the WIKI section for details
+See the [WIKI](https://github.com/carlosgprado/BrundleFuzz/wiki) section for details.
